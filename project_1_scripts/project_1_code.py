@@ -16,3 +16,6 @@ print(X)
 attribute_names = np.asarray(df.columns[cols])
 print(attribute_names)
 
+classLabels = raw_data[:, 5]
+classNames = np.unique(classLabels)
+classDict = dict(zip(classNames,range(len(classNames))))
