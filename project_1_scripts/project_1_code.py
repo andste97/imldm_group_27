@@ -18,11 +18,13 @@ print(attribute_names)
 
 classLabels = raw_data[:, 5]
 classNames = np.unique(classLabels)
-classDict = dict(zip(classNames,range(len(classNames))))
+classDict = dict(zip(classNames, range(len(classNames))))
+# column 5 transformed from text present/absent to 1/0
+v_famhist_transformed = np.array([classDict[value] for value in classLabels])
+print('Vector famhist: ', v_famhist_transformed)
 
-# extract class values to vectory in format numpy array
-y = np.array([classDict[value] for value in classLabels])
-print('Vectory y: ', y)
-
-X[:, -1] = y
+X[:, -1] = v_famhist_transformed
 print("X, last column replaced with transformed values: ", X)
+
+# Subtract mean value from data
+X_centered = X - np.ones((N,1))*X.mean(axis=0)
