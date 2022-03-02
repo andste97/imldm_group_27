@@ -36,7 +36,7 @@ C = len(classNames)
 X_centered = X - np.ones((N, 1))*X.mean(axis=0)
 print("X, centered: ", X_centered)
 
-# filter attributes with ordinal values (Attribute 0 and 9)
+# filter attributes with ordinal values (Attribute 5 and 9)
 selection_non_ordinal_columns = np.array([True, True, True, True, False, True, True, True, True, False])
 X_centered_non_ordinal = X_centered[:, selection_non_ordinal_columns]
 attributeNames_non_ordinal = np.asarray(df.columns[cols])[selection_non_ordinal_columns]
@@ -47,7 +47,7 @@ M_non_ordinal = len(attributeNames_non_ordinal)
 figure()
 title('SAHD: Boxplot')
 boxplot(X)
-xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
+xticks(range(1, M+1), attributeNames, rotation=45)
 
 # now a boxplot of the centered data
 figure()
