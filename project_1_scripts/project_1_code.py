@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
+                               xlabel, ylim, yticks, show)
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
@@ -33,3 +35,23 @@ C = len(classNames)
 # Subtract mean value from data
 X_centered = X - np.ones((N,1))*X.mean(axis=0)
 print("X, centered: ", X_centered)
+
+# create boxplot for every attribute to spot outliers
+
+# We start with a box plot of each attribute
+figure()
+title('SAHD: Boxplot')
+boxplot(X)
+xticks(range(1,M+1), attributeNames, rotation=45)
+
+# now a boxplot of the centered data
+figure()
+title('SAHD mean subtracted (centered): Boxplot')
+boxplot(X_centered)
+xticks(range(1,M+1), attributeNames, rotation=45)
+
+# put all graphs above this command
+show()
+
+# put all graphs above this command
+show()
