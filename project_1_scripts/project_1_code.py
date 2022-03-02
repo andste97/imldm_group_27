@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
                                xlabel, ylim, yticks, show)
+from scipy import stats
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
@@ -35,6 +36,10 @@ C = len(classNames)
 # Subtract mean value from data
 X_centered = X - np.ones((N, 1))*X.mean(axis=0)
 print("X, centered: ", X_centered)
+
+# standardize data
+X_float = np.array(X_centered, dtype=np.float64)
+X_standardized = X_float*(1/np.std(X_float,0))
 
 # filter attributes with ordinal values (Attribute 5 and 9)
 selection_non_ordinal_columns = np.array([True, True, True, True, False, True, True, True, True, False])
