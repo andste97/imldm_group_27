@@ -10,8 +10,8 @@ print(df)
 raw_data = df.values
 print(raw_data)
 
-cols = range (1,11) # exclude column 0 because
-  # row numbers are not needed as attributes
+cols = range(1, 11)  # exclude column 0 because
+# row numbers are not needed as attributes
 X = raw_data[:, cols]
 print(X)
 
@@ -33,22 +33,41 @@ M = len(attributeNames)
 C = len(classNames)
 
 # Subtract mean value from data
-X_centered = X - np.ones((N,1))*X.mean(axis=0)
+X_centered = X - np.ones((N, 1))*X.mean(axis=0)
 print("X, centered: ", X_centered)
 
-# create boxplot for every attribute to spot outliers
+# filter attributes with ordinal values (Attribute 0 and 9)
+selection_non_ordinal_columns = np.array([True, True, True, True, False, True, True, True, True, False])
+X_centered_non_ordinal = X_centered[:, selection_non_ordinal_columns]
+attributeNames_non_ordinal = np.asarray(df.columns[cols])[selection_non_ordinal_columns]
+M_non_ordinal = len(attributeNames_non_ordinal)
 
-# We start with a box plot of each attribute
+
+# create boxplot for every attribute to spot outliers
 figure()
 title('SAHD: Boxplot')
 boxplot(X)
-xticks(range(1,M+1), attributeNames, rotation=45)
+xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
 
 # now a boxplot of the centered data
 figure()
 title('SAHD mean subtracted (centered): Boxplot')
-boxplot(X_centered)
-xticks(range(1,M+1), attributeNames, rotation=45)
+boxplot(X_centered_non_ordinal)
+xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
+# seems like we have a few outliers in our dataset
+
+# next, we plot histograms for each of the attributes
+# TODO: filter out attributes where a normal distribution does not make sense (e.g.: ordinal atts)
+figure(figsize=(14, 9))
+u = np.floor(np.sqrt(M_non_ordinal))
+v = np.ceil(float(M_non_ordinal) / u)
+for i in range(M_non_ordinal):
+    subplot(int(u), int(v), int(i + 1))
+    hist(X_centered_non_ordinal[:, i])
+    xlabel(attributeNames_non_ordinal[i])
+    ylim(0, N)  # Make the y-axes equal for improved readability
+    if i % v != 0: yticks([])
+    if i == 0: title('SAHD: Histogram')
 
 # put all graphs above this command
 show()
