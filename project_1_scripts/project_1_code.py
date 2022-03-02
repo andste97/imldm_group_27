@@ -57,7 +57,6 @@ xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
 # seems like we have a few outliers in our dataset
 
 # next, we plot histograms for each of the attributes
-# TODO: filter out attributes where a normal distribution does not make sense (e.g.: ordinal atts)
 figure(figsize=(14, 9))
 u = np.floor(np.sqrt(M_non_ordinal))
 v = np.ceil(float(M_non_ordinal) / u)
