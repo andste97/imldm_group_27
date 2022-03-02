@@ -52,6 +52,3 @@ xticks(range(1,M+1), attributeNames, rotation=45)
 
 # put all graphs above this command
 show()
-
-# put all graphs above this command
-show()
