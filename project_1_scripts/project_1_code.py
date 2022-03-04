@@ -117,10 +117,6 @@ sns.heatmap(corr,
             yticklabels=attributeNames)
 title('Correlation matrix for South African Heart Disease Dataset', loc='left', fontsize=16)
 
-# put all graphs above this command
-show()
-
-
 # PCA
 import matplotlib.pyplot as plt
 from scipy.linalg import svd
@@ -151,7 +147,9 @@ plt.xlabel('Principal component');
 plt.ylabel('Variance explained');
 plt.legend(['Individual','Cumulative','Threshold'])
 plt.grid()
-plt.show()
 
+
+# put all graphs above this command
+show()
 
 
