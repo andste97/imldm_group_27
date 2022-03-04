@@ -54,13 +54,13 @@ X_standardized = X_float_ordinal * (1 / np.std(X_float_ordinal, 0))
 
 # create boxplot for every attribute to spot outliers
 figure()
-title('SAHD: Boxplot')
+title('SAHD: Boxplot', fontsize=16)
 boxplot(X)
 xticks(range(1, M+1), attributeNames, rotation=45)
 
 # now a boxplot of the centered data
 figure()
-title('SAHD mean subtracted (centered): Boxplot')
+title('SAHD mean subtracted (centered): Boxplot', fontsize=16)
 boxplot(X_centered_non_ordinal)
 xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
 
@@ -76,7 +76,7 @@ for i in range(M_non_ordinal):
     xlabel(attributeNames_non_ordinal[i])
     ylim(0, N)  # Make the y-axes equal for improved readability
     if i % v != 0: yticks([])
-    if i == 0: title('SAHD, centered: Histogram')
+    if i == 0: title('SAHD, centered: Histogram', fontsize=16)
 
 
 # plot standardized data with normal distribution curve.
@@ -92,7 +92,7 @@ for i in range(M_non_ordinal):
     xlabel(attributeNames_non_ordinal[i])
     # ylim(0, N)  # Make the y-axes equal for improved readability
     #if i % v != 0: yticks([])
-    if i == 0: title('SAHD, non-ordinal, standardized: Histogram')
+    if i == 0: title('SAHD, non-ordinal, standardized: Histogram', fontsize=16)
     x = np.linspace(X_standardized.min(), X_standardized.max(), 1000)
     pdf = stats.norm.pdf(x)
     plt.plot(x, pdf, '.', color='red')
@@ -115,9 +115,7 @@ sns.heatmap(corr,
             square=True,
             xticklabels=attributeNames,
             yticklabels=attributeNames)
-# title
-title = 'Correlation matrix for South African Heart Disease Dataset'
-plt.title(title, loc='left', fontsize=16)
+title('Correlation matrix for South African Heart Disease Dataset', loc='left', fontsize=16)
 
 # put all graphs above this command
 show()
