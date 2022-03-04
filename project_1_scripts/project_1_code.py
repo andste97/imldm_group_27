@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
                                xlabel, ylim, yticks, show)
+import matplotlib.pyplot as plt
 from scipy import stats
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
@@ -37,16 +38,17 @@ C = len(classNames)
 X_centered = X - np.ones((N, 1))*X.mean(axis=0)
 print("X, centered: ", X_centered)
 
-# standardize data
-X_float = np.array(X_centered, dtype=np.float64)
-X_standardized = X_float*(1/np.std(X_float,0))
-
 # filter attributes with ordinal values (Attribute 5 and 9)
 selection_non_ordinal_columns = np.array([True, True, True, True, False, True, True, True, True, False])
 X_centered_non_ordinal = X_centered[:, selection_non_ordinal_columns]
 attributeNames_non_ordinal = np.asarray(df.columns[cols])[selection_non_ordinal_columns]
 M_non_ordinal = len(attributeNames_non_ordinal)
 
+# standardize non-ordinal data
+X_float = np.array(X_centered_non_ordinal, dtype=np.float64)
+X_standardized = X_float*(1/np.std(X_float,0))
+
+# -------------- boxplots
 
 # create boxplot for every attribute to spot outliers
 figure()
@@ -61,6 +63,8 @@ boxplot(X_centered_non_ordinal)
 xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
 # seems like we have a few outliers in our dataset
 
+# -------------- histogram plots
+
 # next, we plot histograms for each of the attributes
 figure(figsize=(14, 9))
 u = np.floor(np.sqrt(M_non_ordinal))
@@ -71,7 +75,26 @@ for i in range(M_non_ordinal):
     xlabel(attributeNames_non_ordinal[i])
     ylim(0, N)  # Make the y-axes equal for improved readability
     if i % v != 0: yticks([])
-    if i == 0: title('SAHD: Histogram')
+    if i == 0: title('SAHD, centered: Histogram')
+
+
+# plot standardized data with normal distribution curve.
+# Can be used to check which data
+# is normally distributed and which is not. From the looks, tobacco, alcohol and age
+# are not normally distributed
+figure(figsize=(14, 9))
+u = np.floor(np.sqrt(M_non_ordinal));
+v = np.ceil(float(M_non_ordinal) / u)
+for i in range(M_non_ordinal):
+    subplot(int(u), int(v), int(i + 1))
+    hist(X_standardized[:, i], bins=20, density=True)
+    xlabel(attributeNames_non_ordinal[i])
+    # ylim(0, N)  # Make the y-axes equal for improved readability
+    #if i % v != 0: yticks([])
+    if i == 0: title('SAHD, non-ordinal, standardized: Histogram')
+    x = np.linspace(X_standardized.min(), X_standardized.max(), 1000)
+    pdf = stats.norm.pdf(x)
+    plt.plot(x, pdf, '.', color='red')
 
 # put all graphs above this command
 show()
