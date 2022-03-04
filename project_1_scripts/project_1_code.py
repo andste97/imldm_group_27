@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
                                xlabel, ylim, yticks, show)
 import matplotlib.pyplot as plt
@@ -45,8 +46,9 @@ attributeNames_non_ordinal = np.asarray(df.columns[cols])[selection_non_ordinal_
 M_non_ordinal = len(attributeNames_non_ordinal)
 
 # standardize non-ordinal data
-X_float = np.array(X_centered_non_ordinal, dtype=np.float64)
-X_standardized = X_float*(1/np.std(X_float,0))
+X_float = np.array(X, dtype=np.float64)
+X_float_ordinal = np.array(X_centered_non_ordinal, dtype=np.float64)
+X_standardized = X_float_ordinal * (1 / np.std(X_float_ordinal, 0))
 
 # -------------- boxplots
 
@@ -61,7 +63,6 @@ figure()
 title('SAHD mean subtracted (centered): Boxplot')
 boxplot(X_centered_non_ordinal)
 xticks(range(1, M_non_ordinal+1), attributeNames_non_ordinal, rotation=45)
-# seems like we have a few outliers in our dataset
 
 # -------------- histogram plots
 
@@ -95,6 +96,28 @@ for i in range(M_non_ordinal):
     x = np.linspace(X_standardized.min(), X_standardized.max(), 1000)
     pdf = stats.norm.pdf(x)
     plt.plot(x, pdf, '.', color='red')
+
+
+# plot correlation matrix for all attributes
+corr = np.round(np.corrcoef([X_float[:, i] for i in range(X_float.shape[1])]), 2)
+fig, _ = plt.subplots(figsize=(10, 8))
+mask = np.triu(np.ones_like(corr, dtype=bool))
+
+sns.heatmap(corr,
+            annot=True,
+            fmt=".2f",
+            linewidths=5,
+            mask=mask,
+            cmap='vlag_r',
+            vmin=-1,
+            vmax=1,
+            cbar_kws={"shrink": .8},
+            square=True,
+            xticklabels=attributeNames,
+            yticklabels=attributeNames)
+# title
+title = 'Correlation matrix for South African Heart Disease Dataset'
+plt.title(title, loc='left', fontsize=16)
 
 # put all graphs above this command
 show()
