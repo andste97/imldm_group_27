@@ -1,11 +1,12 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
-                               xlabel, ylim, yticks, show)
+from matplotlib.pyplot import (boxplot, xticks, subplot, hist,
+                               ylim, yticks)
 from matplotlib.pyplot import figure, plot, title, xlabel, ylabel, show, legend
-import matplotlib.pyplot as plt
 from scipy import stats
+from scipy.linalg import svd
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
@@ -126,8 +127,6 @@ title('Correlation matrix for South African Heart Disease Dataset', loc='left', 
 #######
 # PCA
 #######
-import matplotlib.pyplot as plt
-from scipy.linalg import svd
 
 # Standadizing dataset
 # Note: X_float is used to avoid ValueError
@@ -138,7 +137,7 @@ Ynorm = Y / np.std(Y, axis = 0)
 
 
 # PCA by computing SVD of Y
-U, S, V = svd(Ynorm, full_matrices=False)
+U, S, V=svd(Ynorm, full_matrices=False)
 
 # Compute variance explained by principal components
 rho = (S*S) / (S*S).sum()
