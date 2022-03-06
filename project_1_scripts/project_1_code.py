@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
                                xlabel, ylim, yticks, show)
+from matplotlib.pyplot import figure, plot, title, xlabel, ylabel, show, legend
 import matplotlib.pyplot as plt
 from scipy import stats
 
@@ -24,6 +25,11 @@ print(attributeNames)
 classLabels = X[:, 4]
 classNames = np.unique(classLabels)
 classDict = dict(zip(classNames, range(len(classNames))))
+# Extract vector y, convert to NumPy array
+y = np.asarray([classDict[value] for value in classLabels])
+# y is transposed
+y = y.T
+
 # column 5 transformed from text present/absent to 1/0
 v_famhist_transformed = np.array([classDict[value] for value in classLabels])
 print('Vector famhist transformed: ', v_famhist_transformed)
@@ -117,11 +123,9 @@ sns.heatmap(corr,
             yticklabels=attributeNames)
 title('Correlation matrix for South African Heart Disease Dataset', loc='left', fontsize=16)
 
-# put all graphs above this command
-show()
-
-
-###### PCA
+#######
+# PCA
+#######
 import matplotlib.pyplot as plt
 from scipy.linalg import svd
 
@@ -129,7 +133,7 @@ from scipy.linalg import svd
 # Note: X_float is used to avoid ValueError
 N = len(X)
 Y = X_float - np.ones((N,1))*X_float.mean(axis=0)
-# Further normalization of dataset, because of large outliers shown in the boxplots
+# Normalizing dataset because of large outliers, as shown in the boxplots
 Ynorm = Y / np.std(Y, axis = 0)
 
 
@@ -151,17 +155,7 @@ plt.xlabel('Principal component');
 plt.ylabel('Variance explained');
 plt.legend(['Individual','Cumulative','Threshold'])
 plt.grid()
-plt.show()
 
-#### Scatterplot
-# Subtract mean value from data
-Y = X_float - np.ones((N,1))*X_float.mean(0)
-
-# PCA by computing SVD of Y
-U,S,Vh = svd(Y,full_matrices=False)
-# scipy.linalg.svd returns "Vh", which is the Hermitian (transpose)
-# of the vector V. So, for us to obtain the correct V, we transpose:
-V = Vh.T
 
 # Project the centered data onto principal component space
 Z = Y @ V
@@ -172,7 +166,7 @@ j = 1
 
 # Plot PCA of the data
 f = figure()
-title('SAHeart Disease Data: PCA')
+title('SA Heart Disease: PCA')
 #Z = array(Z)
 for c in range(C):
     # select indices belonging to class c:
@@ -182,7 +176,7 @@ legend(classNames)
 xlabel('PC{0}'.format(i+1))
 ylabel('PC{0}'.format(j+1))
 
-# Output result to screen
+# put all graphs above this command
 show()
-####
-#####
+
+
