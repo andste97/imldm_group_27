@@ -124,6 +124,25 @@ sns.heatmap(corr,
             yticklabels=attributeNames)
 title('Correlation matrix for South African Heart Disease Dataset', loc='left', fontsize=16)
 
+# ------------------- Scatterplots
+
+attribute_indexes_for_comparison = [(3, 6), (3, 8)]
+titles = ["Correlation between adiposity and obesity",
+          "Correlation between age and adiposity"]
+figure(figsize=(9, 4))
+for i in range(2):
+    subplot(1, 2, i+1)
+    global c, class_mask
+    for c in range(C):
+        class_mask = (y == c)
+        plot(np.array(X[class_mask, attribute_indexes_for_comparison[i][0]]), np.array(X[class_mask, attribute_indexes_for_comparison[i][1]]), '.')
+        xlabel(attributeNames[attribute_indexes_for_comparison[i][0]])
+        ylabel([attribute_indexes_for_comparison[i][1]])
+        # ylim(0,X.max()*1.1)
+        # xlim(0,X.max()*1.1)
+    legend(["CHD absent", "CHD present"])
+    title(titles[i])
+
 #######
 # PCA
 #######
@@ -152,7 +171,7 @@ plt.plot([1,len(rho)],[threshold, threshold],'k--')
 plt.title('Variance explained by principal components');
 plt.xlabel('Principal component');
 plt.ylabel('Variance explained');
-plt.legend(['Individual','Cumulative','Threshold'])
+plt.legend(['Individual', 'Cumulative', 'Threshold'])
 plt.grid()
 
 
