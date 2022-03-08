@@ -1,11 +1,12 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from matplotlib.pyplot import (figure, title, boxplot, xticks, subplot, hist,
-                               xlabel, ylim, yticks, show)
+from matplotlib.pyplot import (boxplot, xticks, subplot, hist,
+                               ylim, yticks)
 from matplotlib.pyplot import figure, plot, title, xlabel, ylabel, show, legend
-import matplotlib.pyplot as plt
 from scipy import stats
+from scipy.linalg import svd
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
@@ -123,34 +124,43 @@ sns.heatmap(corr,
             yticklabels=attributeNames)
 title('Correlation matrix for South African Heart Disease Dataset', loc='left', fontsize=16)
 
+# ------------------- Scatterplots
+
+attribute_indexes_for_comparison = [(3, 6), (3, 8)]
+titles = ["Correlation between adiposity and obesity",
+          "Correlation between age and adiposity"]
+figure(figsize=(9, 4))
+for i in range(2):
+    subplot(1, 2, i+1)
+    global c, class_mask
+    for c in range(C):
+        class_mask = (y == c)
+        plot(np.array(X[class_mask, attribute_indexes_for_comparison[i][0]]), np.array(X[class_mask, attribute_indexes_for_comparison[i][1]]), '.')
+        xlabel(attributeNames[attribute_indexes_for_comparison[i][0]])
+        ylabel([attribute_indexes_for_comparison[i][1]])
+        # ylim(0,X.max()*1.1)
+        # xlim(0,X.max()*1.1)
+    legend(["CHD absent", "CHD present"])
+    title(titles[i])
+
 #######
 # PCA
 #######
-import matplotlib.pyplot as plt
-from scipy.linalg import svd
-
-# Removing CHD attribute
-X_floatNoCHD = X_float[:,range(0,9)]
 
 # Standadizing dataset
 # Note: X_float is used to avoid ValueError
-Y_1 = X_floatNoCHD - np.ones((N,1))*X_floatNoCHD.mean(axis=0)
+N = len(X)
+Y = X_float - np.ones((N,1))*X_float.mean(axis=0)
 # Normalizing dataset because of large outliers, as shown in the boxplots
-Y = Y_1 / np.std(Y_1, axis = 0)
+Ynorm = Y / np.std(Y, axis = 0)
 
 
 # PCA by computing SVD of Y
-U, S, Vh = svd(Y, full_matrices=False)
-V = Vh.T
+U, S, V=svd(Ynorm, full_matrices=False)
 
 # Compute variance explained by principal components
 rho = (S*S) / (S*S).sum()
 
-#Variance explained by each principle component
-print("Variance explained by PC 1-9 in decending order")
-for i in range(9):
-    print(rho[i])
-print("Sum of PC 1-7: ", sum(rho[(range(7))]))
 threshold = 0.9
 
 # Plot variance explained
@@ -161,9 +171,9 @@ plt.plot([1,len(rho)],[threshold, threshold],'k--')
 plt.title('Variance explained by principal components');
 plt.xlabel('Principal component');
 plt.ylabel('Variance explained');
-plt.legend(['Individual','Cumulative','Threshold'])
+plt.legend(['Individual', 'Cumulative', 'Threshold'])
 plt.grid()
-plt.show()
+
 
 # Project the centered data onto principal component space
 Z = Y @ V
@@ -174,35 +184,15 @@ j = 1
 
 # Plot PCA of the data
 f = figure()
-title('Scatterplot: CHD(absent,present) projected on PC1, PC2')
+title('SA Heart Disease: PCA')
 #Z = array(Z)
 for c in range(C):
     # select indices belonging to class c:
     class_mask = y==c
-    plot(Z[class_mask,i], Z[class_mask,j], 'o', alpha=.6)
+    plot(Z[class_mask,i], Z[class_mask,j], 'o', alpha=.5)
 legend(classNames)
 xlabel('PC{0}'.format(i+1))
 ylabel('PC{0}'.format(j+1))
-plt.show()
-
-# PCA Coeff.
-pcs = [0,1,2]
-legendStrs = ['PC'+str(e+1) for e in pcs]
-c = ['r','g','b']
-bw = .2
-r = np.arange(1,M)
-for i in pcs:
-    plt.bar(r+i*bw, V[:,i], width=bw)
-plt.xticks(r+bw, attributeNames[0:9])
-plt.xlabel('Attributes')
-plt.ylabel('Component coefficients')
-plt.legend(legendStrs)
-plt.grid()
-plt.title('SA Heart Disease: PCA Component Coefficients')
-plt.show()
-
-
-
 
 # put all graphs above this command
 show()
