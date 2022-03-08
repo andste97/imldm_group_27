@@ -196,6 +196,9 @@ ylabel('PC{0}'.format(j+1))
 
 plt.show()
 
+
+#### todo: lost some code during our last merge, so this
+#       currently throws an error
 # PCA Coeff.
 pcs = [0,1,2]
 legendStrs = ['PC'+str(e+1) for e in pcs]
