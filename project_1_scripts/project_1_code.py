@@ -129,20 +129,28 @@ title('Correlation matrix for South African Heart Disease Dataset', loc='left', 
 import matplotlib.pyplot as plt
 from scipy.linalg import svd
 
+# Removing CHD attribute
+X_floatNoCHD = X_float[:,range(0,9)]
+
 # Standadizing dataset
 # Note: X_float is used to avoid ValueError
-N = len(X)
-Y = X_float - np.ones((N,1))*X_float.mean(axis=0)
+Y_1 = X_floatNoCHD - np.ones((N,1))*X_floatNoCHD.mean(axis=0)
 # Normalizing dataset because of large outliers, as shown in the boxplots
-Ynorm = Y / np.std(Y, axis = 0)
+Y = Y_1 / np.std(Y_1, axis = 0)
 
 
 # PCA by computing SVD of Y
-U, S, V = svd(Ynorm, full_matrices=False)
+U, S, Vh = svd(Y, full_matrices=False)
+V = Vh.T
 
 # Compute variance explained by principal components
 rho = (S*S) / (S*S).sum()
 
+#Variance explained by each principle component
+print("Variance explained by PC 1-9 in decending order")
+for i in range(9):
+    print(rho[i])
+print("Sum of PC 1-7: ", sum(rho[(range(7))]))
 threshold = 0.9
 
 # Plot variance explained
@@ -155,7 +163,7 @@ plt.xlabel('Principal component');
 plt.ylabel('Variance explained');
 plt.legend(['Individual','Cumulative','Threshold'])
 plt.grid()
-
+plt.show()
 
 # Project the centered data onto principal component space
 Z = Y @ V
@@ -166,15 +174,35 @@ j = 1
 
 # Plot PCA of the data
 f = figure()
-title('SA Heart Disease: PCA')
+title('Scatterplot: CHD(absent,present) projected on PC1, PC2')
 #Z = array(Z)
 for c in range(C):
     # select indices belonging to class c:
     class_mask = y==c
-    plot(Z[class_mask,i], Z[class_mask,j], 'o', alpha=.5)
+    plot(Z[class_mask,i], Z[class_mask,j], 'o', alpha=.6)
 legend(classNames)
 xlabel('PC{0}'.format(i+1))
 ylabel('PC{0}'.format(j+1))
+plt.show()
+
+# PCA Coeff.
+pcs = [0,1,2]
+legendStrs = ['PC'+str(e+1) for e in pcs]
+c = ['r','g','b']
+bw = .2
+r = np.arange(1,M)
+for i in pcs:
+    plt.bar(r+i*bw, V[:,i], width=bw)
+plt.xticks(r+bw, attributeNames[0:9])
+plt.xlabel('Attributes')
+plt.ylabel('Component coefficients')
+plt.legend(legendStrs)
+plt.grid()
+plt.title('SA Heart Disease: PCA Component Coefficients')
+plt.show()
+
+
+
 
 # put all graphs above this command
 show()
