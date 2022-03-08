@@ -225,6 +225,27 @@ plt.show()
 
 
 
+plt.show()
+
+
+#### todo: lost some code during our last merge, so this
+#       currently throws an error
+# PCA Coeff.
+pcs = [0,1,2]
+legendStrs = ['PC'+str(e+1) for e in pcs]
+c = ['r','g','b']
+bw = .2
+r = np.arange(1,M)
+for i in pcs:
+    plt.bar(r+i*bw, V[:, i], width=bw)
+plt.xticks(r+bw, attributeNames[0:9])
+plt.xlabel('Attributes')
+plt.ylabel('Component coefficients')
+plt.legend(legendStrs)
+plt.grid()
+plt.title('SA Heart Disease: PCA Component Coefficients')
+plt.show()
+
 # put all graphs above this command
 show()
 
