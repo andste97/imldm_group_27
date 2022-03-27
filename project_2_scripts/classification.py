@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
@@ -60,35 +61,87 @@ print("number of chd negative: ", num_chd_negative, ", number of chd positive: "
 X_baseline = np.copy(X)
 X_baseline[:-1] = np.ones(X_baseline[:-1].shape)
 
-# Create crossvalidation partition for evaluation
-# using stratification and 95 pct. split between training and test
-K = 20
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.95, stratify=y)
+
+def logreg_inner_loop(X, y, k2, lambda_interval):
+    # split dataset into k2 parts for inner loop,
+    # then loop over k2 inner parts
+    CV = model_selection.KFold(n_splits=k2, shuffle=True)
+
+    val_error_rate_all_models = np.zeros((k2, len(lambda_interval)))
+
+    k = 0
+    for train_index, val_index in CV.split(X, y):
+        X_train = X[train_index]
+        y_train = y[train_index]
+        X_val = X[val_index]
+        y_val = y[val_index]
+
+        # Standardize the training and set set based on training set mean and std
+        mu = np.mean(X_train, 0)
+        sigma = np.std(X_train, 0)
+
+        X_train = (X_train - mu) / sigma
+        X_val = (X_val - mu) / sigma
+
+        # Train and test every model with the current split of dataset
+        train_error_rate_iteration = np.zeros(len(lambda_interval))
+        val_error_rate_iteration = np.zeros(len(lambda_interval))
+        coefficient_norm_iteration = np.zeros(len(lambda_interval))
+        # train all the models on the same data, then obtain training and validation error
+        for s in range(0, len(lambda_interval)):
+            train_error_rate_iteration[s], val_error_rate_iteration[s], coefficient_norm_iteration[s] \
+                = fit_logreg(X_train, X_val, y_train, y_val, lambda_interval[s])
+
+        val_error_rate_all_models[k] = val_error_rate_iteration
+        k += 1
+
+    return val_error_rate_all_models
 
 
-def fit_regression():
-    # Fit regularized logistic regression model to training data to predict
-    # the type of wine
+def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
+    mdl = LogisticRegression(penalty='l2', C=1 / var_lambda)
+    mdl.fit(X_train, y_train)
+    y_train_est = mdl.predict(X_train).T
+    y_test_est = mdl.predict(X_test).T
+    train_error_rate = np.sum(y_train_est != y_train) / len(y_train)
+    test_error_rate = np.sum(y_test_est != y_test) / len(y_test)
+    w_est = mdl.coef_[0]
+    coefficient_norm = np.sqrt(np.sum(w_est ** 2))
+
+    return train_error_rate, test_error_rate, coefficient_norm
+
+
+def validate_models(X, y):
+    k1 = k2 = 10
+
+    # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
-    train_error_rate = np.zeros(len(lambda_interval))
-    test_error_rate = np.zeros(len(lambda_interval))
-    coefficient_norm = np.zeros(len(lambda_interval))
-    for k in range(0, len(lambda_interval)):
-        mdl = LogisticRegression(penalty='l2', C=1 / lambda_interval[k])
+    CV = model_selection.KFold(n_splits=k1, shuffle=True)
 
-        mdl.fit(X_train, y_train)
+    print('training logistic regression model')
 
-        y_train_est = mdl.predict(X_train).T
-        y_test_est = mdl.predict(X_test).T
+    k = 0
+    for train_index, test_index in CV.split(X, y):
+        X_train = X[train_index]
+        y_train = y[train_index]
+        X_test = X[test_index]
+        y_test = y[test_index]
 
-        train_error_rate[k] = np.sum(y_train_est != y_train) / len(y_train)
-        test_error_rate[k] = np.sum(y_test_est != y_test) / len(y_test)
+        # run inner loop, get validation errors of models for this split
+        val_error_all_models = logreg_inner_loop(X_train, y_train, k2, lambda_interval)
+        # calculate sum of the validation errors for each model, then divide by number of iterations
+        # to get generalization error
+        gen_error_all_models = np.sum(val_error_all_models, axis=0) / k2
+        index_min_error = np.argmin(gen_error_all_models)
 
-        w_est = mdl.coef_[0]
-        coefficient_norm[k] = np.sqrt(np.sum(w_est ** 2))
+        # TODO: calculate Egen for all models to choose the optimal
+        #train_error_rate, test_error_rate, coefficient_norm = \
+        #    fit_logreg(X_train, X_test, y_train, y_test, opt_lambda)
 
-    min_error = np.min(test_error_rate)
-    opt_lambda_idx = np.argmin(test_error_rate)
-    opt_lambda = lambda_interval[opt_lambda_idx]
+        #print('Fold Nr {0} results:'.format(k + 1))
+        #print('Train error rate: {0}'.format(train_error_rate))
+        #print('Test error rate: {0}'.format(test_error_rate))
+        k += 1
 
-fit_regression()
+
+validate_models(X_float[:, 0:-2], y)
