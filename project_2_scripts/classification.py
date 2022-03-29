@@ -228,14 +228,15 @@ def validate_models(X, y):
         X_test = X[test_index]
         y_test = y[test_index]
 
-        # run inner loop, get validation errors of models for this split
-        val_error_all_models, gen_error_all_models = inner_loop_logreg(X_train, y_train, k2, lambda_interval)
+        # run inner loop for logreg, get validation errors of models for this split
+        val_error_all_models_logreg, gen_error_all_models_logreg = inner_loop_logreg(X_train, y_train, k2, lambda_interval)
 
-        val_error_all_models_ANN, gen_error_all_models_logreg = inner_loop_ANN(X_train, y_train, k2, num_hidden_units)
+        # run inner loop for ANN, get validation errors of models for this split
+        val_error_all_models_ann, gen_error_all_models_ann = inner_loop_ANN(X_train, y_train, k2, num_hidden_units)
 
-        #print('Fold Nr {0} results:'.format(k + 1))
-        #print('Train error rate: {0}'.format(train_error_rate))
-        #print('Test error rate: {0}'.format(test_error_rate))
+        print('Fold Nr {0} results:'.format(k + 1))
+        print('Train error rate: logreg: {0}, ANN: {1}'.format(val_error_all_models_logreg, val_error_all_models_ann))
+        print('Generalization error: logreg: {0}, ANN: {1}'.format(gen_error_all_models_logreg, gen_error_all_models_ann))
         k += 1
 
 
