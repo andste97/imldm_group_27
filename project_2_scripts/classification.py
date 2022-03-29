@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
+import torch
 from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+
+from toolbox_02450 import train_neural_net
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
@@ -62,12 +65,13 @@ X_baseline = np.copy(X)
 X_baseline[:-1] = np.ones(X_baseline[:-1].shape)
 
 
-def logreg_inner_loop(X, y, k2, lambda_interval):
+def inner_loop_logreg(X, y, k2, lambda_interval):
     # split dataset into k2 parts for inner loop,
     # then loop over k2 inner parts
     CV = model_selection.KFold(n_splits=k2, shuffle=True)
 
     val_error_rate_all_models = np.zeros((k2, len(lambda_interval)))
+    gen_error_all_models = 0
 
     k = 0
     for train_index, val_index in CV.split(X, y):
@@ -87,15 +91,57 @@ def logreg_inner_loop(X, y, k2, lambda_interval):
         train_error_rate_iteration = np.zeros(len(lambda_interval))
         val_error_rate_iteration = np.zeros(len(lambda_interval))
         coefficient_norm_iteration = np.zeros(len(lambda_interval))
-        # train all the models on the same data, then obtain training and validation error
+        # train all the logreg models on the same data, then obtain training and validation error
         for s in range(0, len(lambda_interval)):
             train_error_rate_iteration[s], val_error_rate_iteration[s], coefficient_norm_iteration[s] \
                 = fit_logreg(X_train, X_val, y_train, y_val, lambda_interval[s])
 
         val_error_rate_all_models[k] = val_error_rate_iteration
+        gen_error_all_models +=  val_error_rate_iteration * (len(X_train) / len(X))
         k += 1
 
-    return val_error_rate_all_models
+        gen_error_all_models = np.sum(val_error_rate_all_models, axis=0) / k2
+
+    return val_error_rate_all_models, gen_error_all_models
+
+def inner_loop_ANN(X, y, k2, hidden_units_interval):
+    # split dataset into k2 parts for inner loop,
+    # then loop over k2 inner parts
+    CV = model_selection.KFold(n_splits=k2, shuffle=True)
+
+    val_error_rate_all_models = np.zeros((k2, len(hidden_units_interval)))
+    gen_error_all_models = 0
+
+    k = 0
+    for train_index, val_index in CV.split(X, y):
+        X_train = X[train_index]
+        y_train = y[train_index]
+        X_val = X[val_index]
+        y_val = y[val_index]
+
+        # Standardize the training and set set based on training set mean and std
+        mu = np.mean(X_train, 0)
+        sigma = np.std(X_train, 0)
+
+        X_train = (X_train - mu) / sigma
+        X_val = (X_val - mu) / sigma
+
+        # Train and test every model with the current split of dataset
+        train_error_rate_iteration = np.zeros(len(hidden_units_interval))
+        val_error_rate_iteration = np.zeros(len(hidden_units_interval))
+        coefficient_norm_iteration = np.zeros(len(hidden_units_interval))
+        # train all the logreg models on the same data, then obtain training and validation error
+        for s in range(0, len(hidden_units_interval)):
+            train_error_rate_iteration[s], val_error_rate_iteration[s] \
+                = train_ann(X_train, X_val, y_train, y_val, hidden_units_interval[s])
+
+        val_error_rate_all_models[k] = val_error_rate_iteration
+        gen_error_all_models +=  val_error_rate_iteration * (len(X_train) / len(X))
+        k += 1
+
+        gen_error_all_models = np.sum(val_error_rate_all_models, axis=0) / k2
+
+    return val_error_rate_all_models, gen_error_all_models
 
 
 def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
@@ -111,12 +157,67 @@ def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
     return train_error_rate, test_error_rate, coefficient_norm
 
 
+def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
+    model = lambda: torch.nn.Sequential(
+        torch.nn.Linear(X_train.shape[1], num_hidden_units),  # M features to H hiden units
+        # 1st transfer function, either Tanh or ReLU:
+        torch.nn.ReLU(),  # torch.nn.ReLU(),
+        torch.nn.Linear(num_hidden_units, 1),  # H hidden units to 1 output neuron
+        torch.nn.Sigmoid()  # final tranfer function
+    )
+    # Since we're training a neural network for binary classification, we use a
+    # binary cross entropy loss (see the help(train_neural_net) for more on
+    # the loss_fn input to the function)
+    loss_fn = torch.nn.BCELoss()
+
+    # Extract training and test set for current CV fold,
+    # and convert them to PyTorch tensors
+    X_train = torch.Tensor(X_train)
+    y_train = torch.Tensor(np.expand_dims(y_train, 1))
+    X_test = torch.Tensor(X_test)
+    y_test = torch.Tensor(np.expand_dims(y_test, 1))
+
+    # Train for a maximum of 10000 steps, or until convergence (see help for the
+    # function train_neural_net() for more on the tolerance/convergence))
+    max_iter = 10000
+    print('Training model of type:\n{}\n'.format(str(model())))
+
+    # Go to the file 'toolbox_02450.py' in the Tools sub-folder of the toolbox
+    # and see how the network is trained (search for 'def train_neural_net',
+    # which is the place the function below is defined)
+    net, final_loss, learning_curve = train_neural_net(model,
+                                                       loss_fn,
+                                                       X=X_train,
+                                                       y=y_train,
+                                                       n_replicates=1,
+                                                       max_iter=max_iter)
+
+    print('\n\tBest loss: {}\n'.format(final_loss))
+
+    # Determine estimated class labels for test set
+    y_sigmoid = net(X_test) # activation of final note, i.e. prediction of network
+    y_test_est = (y_sigmoid > .5).type(dtype=torch.uint8) # threshold output of sigmoidal function
+    y_test = y_test.type(dtype=torch.uint8)
+    # Determine errors and error rate
+    test_error_rate = (sum(y_test_est != y_test).type(torch.float)/len(y_test)).data.numpy()
+
+    y_sigmoid_train = net(X_train)  # activation of final note, i.e. prediction of network
+    y_train_est = (y_sigmoid_train > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
+    y_train = y_train.type(dtype=torch.uint8)
+
+    train_error_rate = (sum(y_train_est != y_train).type(torch.float)/len(y_train)).data.numpy()
+
+    return train_error_rate, test_error_rate
+
 def validate_models(X, y):
-    k1 = k2 = 10
+    k1 = k2 = 5
 
     # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
     CV = model_selection.KFold(n_splits=k1, shuffle=True)
+
+    # choose number of hidden units
+    num_hidden_units = np.arange(1, 6, 1)
 
     print('training logistic regression model')
 
@@ -128,15 +229,9 @@ def validate_models(X, y):
         y_test = y[test_index]
 
         # run inner loop, get validation errors of models for this split
-        val_error_all_models = logreg_inner_loop(X_train, y_train, k2, lambda_interval)
-        # calculate sum of the validation errors for each model, then divide by number of iterations
-        # to get generalization error
-        gen_error_all_models = np.sum(val_error_all_models, axis=0) / k2
-        index_min_error = np.argmin(gen_error_all_models)
+        val_error_all_models, gen_error_all_models = inner_loop_logreg(X_train, y_train, k2, lambda_interval)
 
-        # TODO: calculate Egen for all models to choose the optimal
-        #train_error_rate, test_error_rate, coefficient_norm = \
-        #    fit_logreg(X_train, X_test, y_train, y_test, opt_lambda)
+        val_error_all_models_ANN, gen_error_all_models_logreg = inner_loop_ANN(X_train, y_train, k2, num_hidden_units)
 
         #print('Fold Nr {0} results:'.format(k + 1))
         #print('Train error rate: {0}'.format(train_error_rate))
