@@ -118,6 +118,8 @@ def inner_loop_ANN(X, y, k2, hidden_units_interval):
 
     k = 0
     for train_index, val_index in CV.split(X, y):
+        print("ANN training inner fold {0} out of {1}".format(k, len(hidden_units_interval)))
+
         X_train = X[train_index]
         y_train = y[train_index]
         X_val = X[val_index]
@@ -162,6 +164,7 @@ def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
 
 
 def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
+    print('Training ANN with {0} hidden layers'.format(num_hidden_units))
     model = lambda: torch.nn.Sequential(
         torch.nn.Linear(X_train.shape[1], num_hidden_units),  # M features to H hiden units
         # 1st transfer function, either Tanh or ReLU:
@@ -184,7 +187,7 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
     # Train for a maximum of 10000 steps, or until convergence (see help for the
     # function train_neural_net() for more on the tolerance/convergence))
     max_iter = 10000
-    print('Training model of type:\n{}\n'.format(str(model())))
+    #print('Training model of type:\n{}\n'.format(str(model())))
 
     # Go to the file 'toolbox_02450.py' in the Tools sub-folder of the toolbox
     # and see how the network is trained (search for 'def train_neural_net',
@@ -194,9 +197,8 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
                                                        X=X_train,
                                                        y=y_train,
                                                        n_replicates=1,
-                                                       max_iter=max_iter)
-
-    print('\n\tBest loss: {}\n'.format(final_loss))
+                                                       max_iter=max_iter,
+                                                       tolerance=1e-8)
 
     # Determine estimated class labels for test set
     y_sigmoid = net(X_test) # activation of final note, i.e. prediction of network
@@ -210,6 +212,10 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
     y_train = y_train.type(dtype=torch.uint8)
 
     train_error_rate = (sum(y_train_est != y_train).type(torch.float)/len(y_train)).data.numpy()
+
+    print('Best loss: {0}'.format(final_loss))
+    print('Validation error rate: {0}, train error rate: {1}'.format(test_error_rate, train_error_rate))
+
 
     return train_error_rate, test_error_rate
 
