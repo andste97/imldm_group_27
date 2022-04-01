@@ -70,6 +70,12 @@ X_baseline[:-1] = np.ones(X_baseline[:-1].shape)
 
 
 def inner_loop_logreg(X, y, k2, lambda_interval):
+    """
+        Implementation of Inner loop of Algorithm 6 of the lecture notes (the book),
+        trains logistic regression models
+        Returns: Tuple (val_error_rate_all_models, gen_error_all_models)
+    """
+
     # split dataset into k2 parts for inner loop,
     # then loop over k2 inner parts
     CV = model_selection.KFold(n_splits=k2, shuffle=True)
@@ -101,20 +107,22 @@ def inner_loop_logreg(X, y, k2, lambda_interval):
                 = fit_logreg(X_train, X_val, y_train, y_val, lambda_interval[s])
 
         val_error_rate_all_models[k] = val_error_rate_iteration
-        gen_error_all_models +=  val_error_rate_iteration * (len(X_train) / len(X))
+        gen_error_all_models += val_error_rate_iteration * (len(X_val) / len(X))
         k += 1
-
-        gen_error_all_models = np.sum(val_error_rate_all_models, axis=0) / k2
 
     return val_error_rate_all_models, gen_error_all_models
 
 def inner_loop_ANN(X, y, k2, hidden_units_interval):
+    """
+        Implementation of Inner loop of Algorithm 6 of the lecture notes (the book), trains ANNS
+        Returns: Tuple (val_error_rate_all_models, gen_error_all_models)
+    """
     # split dataset into k2 parts for inner loop,
     # then loop over k2 inner parts
     CV = model_selection.KFold(n_splits=k2, shuffle=True)
 
     val_error_rate_all_models = np.zeros((k2, len(hidden_units_interval)))
-    gen_error_all_models = 0
+    gen_error_all_models = np.zeros(len(hidden_units_interval))
 
     k = 0
     for train_index, val_index in CV.split(X, y):
@@ -142,21 +150,25 @@ def inner_loop_ANN(X, y, k2, hidden_units_interval):
                 = train_ann(X_train, X_val, y_train, y_val, hidden_units_interval[s])
 
         val_error_rate_all_models[k] = val_error_rate_iteration
-        gen_error_all_models +=  val_error_rate_iteration * (len(X_train) / len(X))
+        gen_error_all_models += val_error_rate_iteration * (len(X_val) / len(X))
         k += 1
-
-        gen_error_all_models = np.sum(val_error_rate_all_models, axis=0) / k2
 
     return val_error_rate_all_models, gen_error_all_models
 
 
 def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
+    """
+        Fit a logistic regression model to X_train, evaluate the model
+        Returns: Tuple (train_error_rate, test_error_rate, coefficient_norm)
+    """
     mdl = LogisticRegression(penalty='l2', C=1 / var_lambda)
     mdl.fit(X_train, y_train)
     y_train_est = mdl.predict(X_train).T
     y_test_est = mdl.predict(X_test).T
     train_error_rate = np.sum(y_train_est != y_train) / len(y_train)
     test_error_rate = np.sum(y_test_est != y_test) / len(y_test)
+
+    # get coefficients of logistic regression
     w_est = mdl.coef_[0]
     coefficient_norm = np.sqrt(np.sum(w_est ** 2))
 
@@ -164,6 +176,10 @@ def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
 
 
 def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
+    """
+        Train an ANN with num_hidden_units
+        Tuple (test_error_rate, train_error_rate)
+    """
     print('Training ANN with {0} hidden layers'.format(num_hidden_units))
     model = lambda: torch.nn.Sequential(
         torch.nn.Linear(X_train.shape[1], num_hidden_units),  # M features to H hiden units
@@ -200,27 +216,34 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
                                                        max_iter=max_iter,
                                                        tolerance=1e-8)
 
-    # Determine estimated class labels for test set
-    y_sigmoid = net(X_test) # activation of final note, i.e. prediction of network
-    y_test_est = (y_sigmoid > .5).type(dtype=torch.uint8) # threshold output of sigmoidal function
-    y_test = y_test.type(dtype=torch.uint8)
-    # Determine errors and error rate
-    test_error_rate = (sum(y_test_est != y_test).type(torch.float)/len(y_test)).data.numpy()
-
-    y_sigmoid_train = net(X_train)  # activation of final note, i.e. prediction of network
-    y_train_est = (y_sigmoid_train > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
-    y_train = y_train.type(dtype=torch.uint8)
-
-    train_error_rate = (sum(y_train_est != y_train).type(torch.float)/len(y_train)).data.numpy()
+    test_error_rate, train_error_rate = ann_predict_train_test(X_test, X_train, net, y_test, y_train)
 
     print('Best loss: {0}'.format(final_loss))
     print('Validation error rate: {0}, train error rate: {1}'.format(test_error_rate, train_error_rate))
 
-
     return train_error_rate, test_error_rate
 
+
+def ann_predict_train_test(X_test, X_train, net, y_test, y_train):
+    """
+        Use ANN to predict values of X_test and X_train and compare them with y_test and y_train respectively
+        Returns: Tuple (test_error_rate, train_error_rate)
+    """
+    # Determine estimated class labels for test set
+    y_sigmoid = net(X_test)  # activation of final note, i.e. prediction of network
+    y_test_est = (y_sigmoid > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
+    y_test = y_test.type(dtype=torch.uint8)
+    # Determine errors and error rate
+    test_error_rate = (sum(y_test_est != y_test).type(torch.float) / len(y_test)).data.numpy()
+    y_sigmoid_train = net(X_train)  # activation of final note, i.e. prediction of network
+    y_train_est = (y_sigmoid_train > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
+    y_train = y_train.type(dtype=torch.uint8)
+    train_error_rate = (sum(y_train_est != y_train).type(torch.float) / len(y_train)).data.numpy()
+    return test_error_rate, train_error_rate
+
+
 def validate_models(X, y):
-    k1 = k2 = 5
+    k1 = k2 = 2
 
     # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
@@ -230,6 +253,7 @@ def validate_models(X, y):
     num_hidden_units = np.arange(1, 6, 1)
 
     print('training logistic regression model')
+
 
     k = 0
     for train_index, test_index in CV.split(X, y):
@@ -244,10 +268,36 @@ def validate_models(X, y):
         # run inner loop for ANN, get validation errors of models for this split
         val_error_all_models_ann, gen_error_all_models_ann = inner_loop_ANN(X_train, y_train, k2, num_hidden_units)
 
+        # get index and performance of best model in inner loop according to generalization error
+        index_best_gen_error_logreg = np.argmin(gen_error_all_models_logreg)
+        gen_error_best_logreg = gen_error_all_models_logreg[index_best_gen_error_logreg]
+
+        index_best_gen_error_ann = np.argmin(gen_error_all_models_ann)
+        gen_error_best_ann = gen_error_all_models_logreg[index_best_gen_error_ann]
+
+        # get index and performance of best model in inner loop according to error rate, as specified in assignment description
+        average_error_rate_all_models_logreg = np.sum(val_error_all_models_logreg, axis=0) / k2
+        index_best_avg_error_rate_logreg = np.argmin(average_error_rate_all_models_logreg)
+        avg_error_rate_best_logreg = average_error_rate_all_models_logreg[index_best_avg_error_rate_logreg]
+
+        avg_error_rate_all_models_ann = np.sum(val_error_all_models_ann, axis=0) / k2
+        index_best_avg_error_rate_ann = np.argmin(avg_error_rate_all_models_ann)
+        avg_error_rate_best_ann = avg_error_rate_all_models_ann[index_best_avg_error_rate_ann]
+
+
         print('Fold Nr {0} results:'.format(k + 1))
         print('Train error rate: logreg: {0}, ANN: {1}'.format(val_error_all_models_logreg, val_error_all_models_ann))
-        print('Generalization error: logreg: {0}, ANN: {1}'.format(gen_error_all_models_logreg, gen_error_all_models_ann))
+        print('Generalization error of best model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
+              .format(gen_error_best_logreg, lambda_interval[index_best_gen_error_logreg], gen_error_best_ann, num_hidden_units[index_best_gen_error_ann]))
+        print('Average error rate of best model model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
+              .format(avg_error_rate_best_logreg, lambda_interval[index_best_avg_error_rate_logreg],  avg_error_rate_best_ann, num_hidden_units[index_best_avg_error_rate_ann]))
+
+        fit_logreg(X_train, X_test, y_train, y_test, lambda_interval[index_best_avg_error_rate_logreg])
+        train_ann(X_train, X_test, y_train, y_test, num_hidden_units[index_best_avg_error_rate_ann])
+
         k += 1
+
+
 
 
 validate_models(X_float[:, 0:-2], y)
