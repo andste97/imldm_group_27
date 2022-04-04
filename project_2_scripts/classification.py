@@ -112,6 +112,7 @@ def inner_loop_logreg(X, y, k2, lambda_interval):
 
     return val_error_rate_all_models, gen_error_all_models
 
+
 def inner_loop_ANN(X, y, k2, hidden_units_interval):
     """
         Implementation of Inner loop of Algorithm 6 of the lecture notes (the book), trains ANNS
@@ -203,7 +204,7 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
     # Train for a maximum of 10000 steps, or until convergence (see help for the
     # function train_neural_net() for more on the tolerance/convergence))
     max_iter = 10000
-    #print('Training model of type:\n{}\n'.format(str(model())))
+    # print('Training model of type:\n{}\n'.format(str(model())))
 
     # Go to the file 'toolbox_02450.py' in the Tools sub-folder of the toolbox
     # and see how the network is trained (search for 'def train_neural_net',
@@ -254,7 +255,6 @@ def validate_models(X, y):
 
     print('training logistic regression model')
 
-
     k = 0
     for train_index, test_index in CV.split(X, y):
         X_train = X[train_index]
@@ -263,7 +263,8 @@ def validate_models(X, y):
         y_test = y[test_index]
 
         # run inner loop for logreg, get validation errors of models for this split
-        val_error_all_models_logreg, gen_error_all_models_logreg = inner_loop_logreg(X_train, y_train, k2, lambda_interval)
+        val_error_all_models_logreg, gen_error_all_models_logreg = inner_loop_logreg(X_train, y_train, k2,
+                                                                                     lambda_interval)
 
         # run inner loop for ANN, get validation errors of models for this split
         val_error_all_models_ann, gen_error_all_models_ann = inner_loop_ANN(X_train, y_train, k2, num_hidden_units)
@@ -284,20 +285,21 @@ def validate_models(X, y):
         index_best_avg_error_rate_ann = np.argmin(avg_error_rate_all_models_ann)
         avg_error_rate_best_ann = avg_error_rate_all_models_ann[index_best_avg_error_rate_ann]
 
-
         print('Fold Nr {0} results:'.format(k + 1))
         print('Train error rate: logreg: {0}, ANN: {1}'.format(val_error_all_models_logreg, val_error_all_models_ann))
-        print('Generalization error of best model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
-              .format(gen_error_best_logreg, lambda_interval[index_best_gen_error_logreg], gen_error_best_ann, num_hidden_units[index_best_gen_error_ann]))
-        print('Average error rate of best model model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
-              .format(avg_error_rate_best_logreg, lambda_interval[index_best_avg_error_rate_logreg],  avg_error_rate_best_ann, num_hidden_units[index_best_avg_error_rate_ann]))
+        print(
+            'Generalization error of best model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
+            .format(gen_error_best_logreg, lambda_interval[index_best_gen_error_logreg], gen_error_best_ann,
+                    num_hidden_units[index_best_gen_error_ann]))
+        print(
+            'Average error rate of best model model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
+            .format(avg_error_rate_best_logreg, lambda_interval[index_best_avg_error_rate_logreg],
+                    avg_error_rate_best_ann, num_hidden_units[index_best_avg_error_rate_ann]))
 
         fit_logreg(X_train, X_test, y_train, y_test, lambda_interval[index_best_avg_error_rate_logreg])
         train_ann(X_train, X_test, y_train, y_test, num_hidden_units[index_best_avg_error_rate_ann])
 
         k += 1
-
-
 
 
 validate_models(X_float[:, 0:-2], y)
