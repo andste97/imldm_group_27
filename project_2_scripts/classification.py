@@ -68,66 +68,21 @@ print("number of chd negative: ", num_chd_negative, ", number of chd positive: "
 X_baseline = np.copy(X)
 X_baseline[:-1] = np.ones(X_baseline[:-1].shape)
 
-
-def inner_loop_logreg(X, y, k2, lambda_interval):
+def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
     """
-        Implementation of Inner loop of Algorithm 6 of the lecture notes (the book),
-        trains logistic regression models
-        Returns: Tuple (val_error_rate_all_models, gen_error_all_models)
-    """
-
-    # split dataset into k2 parts for inner loop,
-    # then loop over k2 inner parts
-    CV = model_selection.KFold(n_splits=k2, shuffle=True)
-
-    val_error_rate_all_models = np.zeros((k2, len(lambda_interval)))
-    gen_error_all_models = 0
-
-    k = 0
-    for train_index, val_index in CV.split(X, y):
-        X_train = X[train_index]
-        y_train = y[train_index]
-        X_val = X[val_index]
-        y_val = y[val_index]
-
-        # Standardize the training and set set based on training set mean and std
-        mu = np.mean(X_train, 0)
-        sigma = np.std(X_train, 0)
-
-        X_train = (X_train - mu) / sigma
-        X_val = (X_val - mu) / sigma
-
-        # Train and test every model with the current split of dataset
-        train_error_rate_iteration = np.zeros(len(lambda_interval))
-        val_error_rate_iteration = np.zeros(len(lambda_interval))
-        coefficient_norm_iteration = np.zeros(len(lambda_interval))
-        # train all the logreg models on the same data, then obtain training and validation error
-        for s in range(0, len(lambda_interval)):
-            train_error_rate_iteration[s], val_error_rate_iteration[s], coefficient_norm_iteration[s] \
-                = fit_logreg(X_train, X_val, y_train, y_val, lambda_interval[s])
-
-        val_error_rate_all_models[k] = val_error_rate_iteration
-        gen_error_all_models += val_error_rate_iteration * (len(X_val) / len(X))
-        k += 1
-
-    return val_error_rate_all_models, gen_error_all_models
-
-
-def inner_loop_ANN(X, y, k2, hidden_units_interval):
-    """
-        Implementation of Inner loop of Algorithm 6 of the lecture notes (the book), trains ANNS
+        Implementation of Inner loop of Algorithm 6 of the lecture notes (the book)
         Returns: Tuple (val_error_rate_all_models, gen_error_all_models)
     """
     # split dataset into k2 parts for inner loop,
     # then loop over k2 inner parts
     CV = model_selection.KFold(n_splits=k2, shuffle=True)
 
-    val_error_rate_all_models = np.zeros((k2, len(hidden_units_interval)))
-    gen_error_all_models = np.zeros(len(hidden_units_interval))
+    val_error_rate_all_models = np.zeros((k2, len(regularization_param_interval)))
+    gen_error_all_models = np.zeros(len(regularization_param_interval))
 
     k = 0
     for train_index, val_index in CV.split(X, y):
-        print("ANN training inner fold {0} out of {1}".format(k, len(hidden_units_interval)))
+        print("Training inner fold {0} out of {1}".format(k, len(regularization_param_interval)))
 
         X_train = X[train_index]
         y_train = y[train_index]
@@ -142,13 +97,12 @@ def inner_loop_ANN(X, y, k2, hidden_units_interval):
         X_val = (X_val - mu) / sigma
 
         # Train and test every model with the current split of dataset
-        train_error_rate_iteration = np.zeros(len(hidden_units_interval))
-        val_error_rate_iteration = np.zeros(len(hidden_units_interval))
-        coefficient_norm_iteration = np.zeros(len(hidden_units_interval))
+        train_error_rate_iteration = np.zeros(len(regularization_param_interval))
+        val_error_rate_iteration = np.zeros(len(regularization_param_interval))
         # train all the logreg models on the same data, then obtain training and validation error
-        for s in range(0, len(hidden_units_interval)):
+        for s in range(0, len(regularization_param_interval)):
             train_error_rate_iteration[s], val_error_rate_iteration[s] \
-                = train_ann(X_train, X_val, y_train, y_val, hidden_units_interval[s])
+                = model_training_method(X_train, X_val, y_train, y_val, regularization_param_interval[s])
 
         val_error_rate_all_models[k] = val_error_rate_iteration
         gen_error_all_models += val_error_rate_iteration * (len(X_val) / len(X))
@@ -173,7 +127,7 @@ def fit_logreg(X_train, X_test, y_train, y_test, var_lambda):
     w_est = mdl.coef_[0]
     coefficient_norm = np.sqrt(np.sum(w_est ** 2))
 
-    return train_error_rate, test_error_rate, coefficient_norm
+    return train_error_rate, test_error_rate
 
 
 def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
@@ -263,11 +217,12 @@ def validate_models(X, y):
         y_test = y[test_index]
 
         # run inner loop for logreg, get validation errors of models for this split
-        val_error_all_models_logreg, gen_error_all_models_logreg = inner_loop_logreg(X_train, y_train, k2,
+        val_error_all_models_logreg, gen_error_all_models_logreg = inner_loop(X_train, y_train, k2, fit_logreg,
                                                                                      lambda_interval)
 
         # run inner loop for ANN, get validation errors of models for this split
-        val_error_all_models_ann, gen_error_all_models_ann = inner_loop_ANN(X_train, y_train, k2, num_hidden_units)
+        val_error_all_models_ann, gen_error_all_models_ann = inner_loop(X_train, y_train, k2, train_ann,
+                                                                        num_hidden_units)
 
         # get index and performance of best model in inner loop according to generalization error
         index_best_gen_error_logreg = np.argmin(gen_error_all_models_logreg)
