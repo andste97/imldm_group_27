@@ -68,6 +68,7 @@ print("number of chd negative: ", num_chd_negative, ", number of chd positive: "
 X_baseline = np.copy(X)
 X_baseline[:-1] = np.ones(X_baseline[:-1].shape)
 
+
 def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
     """
         Implementation of Inner loop of Algorithm 6 of the lecture notes (the book)
@@ -171,7 +172,8 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
                                                        max_iter=max_iter,
                                                        tolerance=1e-8)
 
-    test_error_rate, train_error_rate = ann_predict_train_test(X_test, X_train, net, y_test, y_train)
+    train_error_rate = ann_predict(X_train, y_train, net)
+    test_error_rate = ann_predict(X_test, y_test, net)
 
     print('Best loss: {0}'.format(final_loss))
     print('Validation error rate: {0}, train error rate: {1}'.format(test_error_rate, train_error_rate))
@@ -179,22 +181,18 @@ def train_ann(X_train, X_test, y_train, y_test, num_hidden_units):
     return train_error_rate, test_error_rate
 
 
-def ann_predict_train_test(X_test, X_train, net, y_test, y_train):
+def ann_predict(X, y, net):
     """
         Use ANN to predict values of X_test and X_train and compare them with y_test and y_train respectively
-        Returns: Tuple (test_error_rate, train_error_rate)
+        Returns: Tuple (error_rate)
     """
     # Determine estimated class labels for test set
-    y_sigmoid = net(X_test)  # activation of final note, i.e. prediction of network
-    y_test_est = (y_sigmoid > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
-    y_test = y_test.type(dtype=torch.uint8)
+    y_sigmoid = net(X)  # activation of final note, i.e. prediction of network
+    y_est = (y_sigmoid > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
+    y = y.type(dtype=torch.uint8)
     # Determine errors and error rate
-    test_error_rate = (sum(y_test_est != y_test).type(torch.float) / len(y_test)).data.numpy()
-    y_sigmoid_train = net(X_train)  # activation of final note, i.e. prediction of network
-    y_train_est = (y_sigmoid_train > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
-    y_train = y_train.type(dtype=torch.uint8)
-    train_error_rate = (sum(y_train_est != y_train).type(torch.float) / len(y_train)).data.numpy()
-    return test_error_rate, train_error_rate
+    error_rate = (sum(y_est != y).type(torch.float) / len(y)).data.numpy()
+    return error_rate
 
 
 def validate_models(X, y):
@@ -218,7 +216,7 @@ def validate_models(X, y):
 
         # run inner loop for logreg, get validation errors of models for this split
         val_error_all_models_logreg, gen_error_all_models_logreg = inner_loop(X_train, y_train, k2, fit_logreg,
-                                                                                     lambda_interval)
+                                                                              lambda_interval)
 
         # run inner loop for ANN, get validation errors of models for this split
         val_error_all_models_ann, gen_error_all_models_ann = inner_loop(X_train, y_train, k2, train_ann,
@@ -243,13 +241,13 @@ def validate_models(X, y):
         print('Fold Nr {0} results:'.format(k + 1))
         print('Train error rate: logreg: {0}, ANN: {1}'.format(val_error_all_models_logreg, val_error_all_models_ann))
         print(
-            'Generalization error of best model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
-            .format(gen_error_best_logreg, lambda_interval[index_best_gen_error_logreg], gen_error_best_ann,
-                    num_hidden_units[index_best_gen_error_ann]))
+            'Generalization error of best model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: '
+            '{3} '.format(gen_error_best_logreg, lambda_interval[index_best_gen_error_logreg], gen_error_best_ann,
+                          num_hidden_units[index_best_gen_error_ann]))
         print(
-            'Average error rate of best model model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, hidden units: {3}'
-            .format(avg_error_rate_best_logreg, lambda_interval[index_best_avg_error_rate_logreg],
-                    avg_error_rate_best_ann, num_hidden_units[index_best_avg_error_rate_ann]))
+            'Average error rate of best model model in inner loop: logreg: {0}, lambda: {1}, \n \tANN: {2}, '
+            'hidden units: {3} '.format(avg_error_rate_best_logreg, lambda_interval[index_best_avg_error_rate_logreg],
+                                        avg_error_rate_best_ann, num_hidden_units[index_best_avg_error_rate_ann]))
 
         fit_logreg(X_train, X_test, y_train, y_test, lambda_interval[index_best_avg_error_rate_logreg])
         train_ann(X_train, X_test, y_train, y_test, num_hidden_units[index_best_avg_error_rate_ann])
