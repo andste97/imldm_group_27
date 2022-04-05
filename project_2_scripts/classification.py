@@ -1,8 +1,13 @@
+import datetime
+import json
+import time
+
 import numpy as np
 import pandas as pd
 import torch
 from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
+import os
 
 from toolbox_02450 import train_neural_net
 
@@ -107,7 +112,6 @@ def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
         gen_error_all_models += val_error_rate_iteration * (len(X_val) / len(X))
         k += 1
 
-    print('')
     return val_error_rate_all_models, gen_error_all_models
 
 
@@ -190,7 +194,7 @@ def ann_predict(X, y, net):
     y_est = (y_sigmoid > .5).type(dtype=torch.uint8)  # threshold output of sigmoidal function
     y = y.type(dtype=torch.uint8)
     # Determine errors and error rate
-    error_rate = (sum(y_est != y).type(torch.float) / len(y)).data.numpy()
+    error_rate = (sum(y_est != y).type(torch.float) / len(y)).tolist()[0]
     return error_rate
 
 
@@ -205,7 +209,7 @@ def validate_baseline(y_train, y_test, baseline_class):
 
 
 def validate_models(X, y, baseline_class):
-    k1 = k2 = 2
+    k1 = k2 = 10
 
     # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
@@ -214,11 +218,22 @@ def validate_models(X, y, baseline_class):
     # choose number of hidden units
     num_hidden_units = np.arange(1, 6, 1)
 
-    print('Training Models')
+    results = {
+        "k1": k1,
+        "k2": k2,
+        "lambda_interval": lambda_interval.tolist(),
+        "num_hidden_units": num_hidden_units.tolist(),
+        "test_error_baseline": [None] * k1,
+        "test_error_logreg": [None] * k1,
+        "best_regularization_logreg": [None] * k1,
+        "test_error_ann": [None] * k1,
+        "best_regularization_ann": [None] * k1
+    }
 
+    print('Training Models')
     k = 0
     for train_index, test_index in CV.split(X, y):
-        print("Outer loop iteration {0} out of {1}".format(k + 1, k1))
+        print("############### Outer loop iteration {0} out of {1}".format(k + 1, k1))
         X_train = X[train_index]
         y_train = y[train_index]
         X_test = X[test_index]
@@ -241,7 +256,8 @@ def validate_models(X, y, baseline_class):
         index_best_gen_error_ann = np.argmin(gen_error_all_models_ann)
         gen_error_best_ann = gen_error_all_models_logreg[index_best_gen_error_ann]
 
-        # get index and performance of best model in inner loop according to error rate, as specified in assignment description
+        # get index and performance of best model in inner loop according to error rate,
+        # as specified in assignment description
         average_error_rate_all_models_logreg = np.sum(val_error_all_models_logreg, axis=0) / k2
         index_best_avg_error_rate_logreg = np.argmin(average_error_rate_all_models_logreg)
         avg_error_rate_best_logreg = average_error_rate_all_models_logreg[index_best_avg_error_rate_logreg]
@@ -261,20 +277,36 @@ def validate_models(X, y, baseline_class):
             'hidden units: {3} '.format(avg_error_rate_best_logreg, lambda_interval[index_best_avg_error_rate_logreg],
                                         avg_error_rate_best_ann, num_hidden_units[index_best_avg_error_rate_ann]))
 
+        results["best_regularization_logreg"][k] = lambda_interval[index_best_avg_error_rate_logreg]
+        results["best_regularization_ann"][k] = num_hidden_units[index_best_avg_error_rate_ann]
+
         # standardize training and evaluation data used in outer loop
         X_train_standardized, X_test_standardized = standardize_data(X_train, X_test)
 
-        outer_loop_train_error_logreg, outer_loop_test_error_logreg = \
+        outer_loop_train_error_logreg, results["test_error_logreg"][k] = \
             fit_logreg(X_train_standardized, y_train, X_test_standardized, y_test,
                        lambda_interval[index_best_avg_error_rate_logreg])
-        outer_loop_train_error_ann, outer_loop_test_error_ann = \
+        outer_loop_train_error_ann, results["test_error_ann"][k] = \
             train_ann(X_train_standardized, y_train, X_test_standardized, y_test,
                       num_hidden_units[index_best_avg_error_rate_ann])
 
-        outer_loop_train_error_baseline, outer_loop_tes_error_baseline = validate_baseline(y_train, y_test,
-                                                                                           baseline_class)
-
+        outer_loop_train_error_baseline, results["test_error_baseline"][k] = validate_baseline(y_train, y_test,
+                                                                                               baseline_class)
         k += 1
+    return results
 
 
-validate_models(X_float[:, 0:-2], y, baseline_class=1)
+def write_str_to_file(outfile_name, results_str):
+    os.makedirs(os.path.dirname(outfile_name), exist_ok=True)
+    with open(outfile_name, "w") as outfile:
+        outfile.write(results_str)
+
+def convert_numpy_types(o):
+    if isinstance(o, np.generic): return o.item()
+    raise TypeError
+
+results = validate_models(X_float[:, 0:-2], y, baseline_class=0)
+outstring = json.dumps(results, default=convert_numpy_types)
+outfile_name = "./results/results_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
+
+write_str_to_file(outfile_name, outstring)
