@@ -49,20 +49,7 @@ N = len(raw_data[:, -1])
 M = len(attributeNames)
 C = len(classNames)
 
-# Subtract mean value from data
-X_centered = X - np.ones((N, 1)) * X.mean(axis=0)
-# print("X, centered: ", X_centered)
-
-# filter attributes with ordinal values (Attribute 5 and 9)
-selection_non_ordinal_columns = np.array([True, True, True, True, False, True, True, True, True, False])
-X_centered_non_ordinal = X_centered[:, selection_non_ordinal_columns]
-attributeNames_non_ordinal = np.asarray(df.columns[cols])[selection_non_ordinal_columns]
-M_non_ordinal = len(attributeNames_non_ordinal)
-
-# standardize non-ordinal data
 X_float = np.array(X, dtype=np.float64)
-X_float_ordinal = np.array(X_centered_non_ordinal, dtype=np.float64)
-X_standardized = X_float_ordinal * (1 / np.std(X_float_ordinal, 0))
 
 # check which chd class is the most prevalent
 num_chd_negative = len([chd for chd in classLabels if chd == 0])
@@ -207,7 +194,7 @@ def validate_baseline(y, baseline_class):
 
 
 def validate_models(X, y, baseline_class):
-    k1 = k2 = 10
+    k1 = k2 = 2
 
     # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
@@ -281,6 +268,7 @@ def validate_models(X, y, baseline_class):
         # standardize training and evaluation data used in outer loop
         X_train_standardized, X_test_standardized = standardize_data(X_train, X_test)
 
+        # calculate generalization error of models
         outer_loop_train_error_logreg, results["test_error_logreg"][k] = \
             fit_logreg(X_train_standardized, y_train, X_test_standardized, y_test,
                        lambda_interval[index_best_avg_error_rate_logreg])
