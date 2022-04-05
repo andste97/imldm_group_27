@@ -198,14 +198,12 @@ def ann_predict(X, y, net):
     return error_rate
 
 
-def validate_baseline(y_train, y_test, baseline_class):
+def validate_baseline(y, baseline_class):
     # create baseline data
-    prediction_baseline_train = np.full(y_train.shape, baseline_class)
-    prediction_baseline_test = np.full(y_test.shape, baseline_class)
-    train_error_rate = np.sum(prediction_baseline_train != y_train) / len(y_train)
-    test_error_rate = np.sum(prediction_baseline_test != y_test) / len(y_test)
+    prediction_baseline_train = np.full(y.shape, baseline_class)
+    error_rate = np.sum(prediction_baseline_train != y) / len(y)
 
-    return train_error_rate, test_error_rate
+    return error_rate
 
 
 def validate_models(X, y, baseline_class):
@@ -290,8 +288,8 @@ def validate_models(X, y, baseline_class):
             train_ann(X_train_standardized, y_train, X_test_standardized, y_test,
                       num_hidden_units[index_best_avg_error_rate_ann])
 
-        outer_loop_train_error_baseline, results["test_error_baseline"][k] = validate_baseline(y_train, y_test,
-                                                                                               baseline_class)
+        results["test_error_baseline"][k] = validate_baseline(y_test, baseline_class)
+
         k += 1
     return results
 
