@@ -278,7 +278,7 @@ def validate_models(X, y, k1, k2, baseline_class):
         k += 1
 
     predictions_logreg_outer = np.concatenate(predictions_logreg_outer)
-    predictions_ann_outer = np.concatenate(predictions_ann_outer)
+    predictions_ann_outer = np.concatenate(np.concatenate(predictions_ann_outer))
     predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
     y_true_outer = np.concatenate(y_true_outer)
 
@@ -289,7 +289,6 @@ def validate_models(X, y, k1, k2, baseline_class):
         "CI": CI,
         "p": p
     }
-
     [thetahat, CI, p] = mcnemar(y_true_outer, predictions_baseline_outer, predictions_ann_outer, alpha=alpha)
     results["comparison_baseline_ann"] = {
         "theta": thetahat,
@@ -306,21 +305,18 @@ def validate_models(X, y, k1, k2, baseline_class):
     return results
 
 
-# get coefficients of logistic regression
-#w_est = mdl.coef_[0]
-#coefficient_norm = np.sqrt(np.sum(w_est ** 2))
-
 def write_str_to_file(outfile_name, results_str):
     os.makedirs(os.path.dirname(outfile_name), exist_ok=True)
     with open(outfile_name, "w") as outfile:
         outfile.write(results_str)
+
 
 def convert_numpy_types(o):
     if isinstance(o, np.generic): return o.item()
     raise TypeError
 
 X_standardized = standardize_data(X_float)
-k1 = k2 = 2
+k1 = k2 = 10
 results = validate_models(X_standardized[:, 0:-1], y, k1, k2, baseline_class=0)
 outstring = json.dumps(results, default=convert_numpy_types)
 outfile_name = "./results/results_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
