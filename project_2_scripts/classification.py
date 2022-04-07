@@ -9,7 +9,7 @@ from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 import os
 
-from toolbox_02450 import train_neural_net
+from toolbox_02450 import train_neural_net, mcnemar
 
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
@@ -56,13 +56,12 @@ num_chd_negative = len([chd for chd in classLabels if chd == 0])
 print("number of chd negative: ", num_chd_negative, ", number of chd positive: ", N - num_chd_negative)
 
 
-def standardize_data(X_train, X_val):
+def standardize_data(X):
     # Standardize the training and set set based on training set mean and std
-    mu = np.mean(X_train, 0)
-    sigma = np.std(X_train, 0)
-    X_train = (X_train - mu) / sigma
-    X_val = (X_val - mu) / sigma
-    return X_train, X_val
+    mu = np.mean(X, 0)
+    sigma = np.std(X, 0)
+    X_standardized = (X - mu) / sigma
+    return X_standardized
 
 
 def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
@@ -85,14 +84,12 @@ def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
         X_val = X[val_index]
         y_val = y[val_index]
 
-        X_train, X_val = standardize_data(X_train, X_val)
-
         # Train and test every model with the current split of dataset
         train_error_rate_iteration = np.zeros(len(regularization_param_interval))
         val_error_rate_iteration = np.zeros(len(regularization_param_interval))
         # train all the logreg models on the same data, then obtain training and validation error
         for s in range(0, len(regularization_param_interval)):
-            train_error_rate_iteration[s], val_error_rate_iteration[s] \
+            train_error_rate_iteration[s], val_error_rate_iteration[s], _ \
                 = model_training_method(X_train, y_train, X_val, y_val, regularization_param_interval[s])
 
         val_error_rate_all_models[k] = val_error_rate_iteration
@@ -114,11 +111,7 @@ def fit_logreg(X_train, y_train, X_test, y_test, var_lambda):
     train_error_rate = np.sum(y_train_est != y_train) / len(y_train)
     test_error_rate = np.sum(y_test_est != y_test) / len(y_test)
 
-    # get coefficients of logistic regression
-    w_est = mdl.coef_[0]
-    coefficient_norm = np.sqrt(np.sum(w_est ** 2))
-
-    return train_error_rate, test_error_rate
+    return train_error_rate, test_error_rate, mdl
 
 
 def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
@@ -162,13 +155,13 @@ def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
                                                        max_iter=max_iter,
                                                        tolerance=1e-8)
 
-    train_error_rate = ann_predict(X_train, y_train, net)
-    test_error_rate = ann_predict(X_test, y_test, net)
+    train_error_rate,_ = ann_predict(X_train, y_train, net)
+    test_error_rate,_ = ann_predict(X_test, y_test, net)
 
     # print('Best loss: {0}'.format(final_loss))
     # print('Validation error rate: {0}, train error rate: {1}'.format(test_error_rate, train_error_rate))
 
-    return train_error_rate, test_error_rate
+    return train_error_rate, test_error_rate, net
 
 
 def ann_predict(X, y, net):
@@ -182,20 +175,17 @@ def ann_predict(X, y, net):
     y = y.type(dtype=torch.uint8)
     # Determine errors and error rate
     error_rate = (sum(y_est != y).type(torch.float) / len(y)).tolist()[0]
-    return error_rate
+    return error_rate, y_est
 
 
 def validate_baseline(y, baseline_class):
     # create baseline data
-    prediction_baseline_train = np.full(y.shape, baseline_class)
-    error_rate = np.sum(prediction_baseline_train != y) / len(y)
+    prediction_baseline = np.full(y.shape, baseline_class)
+    error_rate = np.sum(prediction_baseline != y) / len(y)
+    return error_rate, prediction_baseline
 
-    return error_rate
 
-
-def validate_models(X, y, baseline_class):
-    k1 = k2 = 2
-
+def validate_models(X, y, k1, k2, baseline_class):
     # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
     CV = model_selection.KFold(n_splits=k1, shuffle=True)
@@ -214,6 +204,11 @@ def validate_models(X, y, baseline_class):
         "test_error_ann": [None] * k1,
         "best_regularization_ann": [None] * k1
     }
+
+    predictions_logreg_outer = []
+    predictions_ann_outer = []
+    predictions_baseline_outer = []
+    y_true_outer = []
 
     print('Training Models')
     k = 0
@@ -265,22 +260,55 @@ def validate_models(X, y, baseline_class):
         results["best_regularization_logreg"][k] = lambda_interval[index_best_avg_error_rate_logreg]
         results["best_regularization_ann"][k] = num_hidden_units[index_best_avg_error_rate_ann]
 
-        # standardize training and evaluation data used in outer loop
-        X_train_standardized, X_test_standardized = standardize_data(X_train, X_test)
-
         # calculate generalization error of models
-        outer_loop_train_error_logreg, results["test_error_logreg"][k] = \
-            fit_logreg(X_train_standardized, y_train, X_test_standardized, y_test,
+        outer_loop_train_error_logreg, results["test_error_logreg"][k], mdl = \
+            fit_logreg(X_train, y_train, X_test, y_test,
                        lambda_interval[index_best_avg_error_rate_logreg])
-        outer_loop_train_error_ann, results["test_error_ann"][k] = \
-            train_ann(X_train_standardized, y_train, X_test_standardized, y_test,
+        outer_loop_train_error_ann, results["test_error_ann"][k], net = \
+            train_ann(X_train, y_train, X_test, y_test,
                       num_hidden_units[index_best_avg_error_rate_ann])
 
-        results["test_error_baseline"][k] = validate_baseline(y_test, baseline_class)
+        results["test_error_baseline"][k] = validate_baseline(y_test, baseline_class)[0]
+
+        predictions_logreg_outer.append(mdl.predict(X_test).T)
+        predictions_ann_outer.append(ann_predict(torch.Tensor(X_test), torch.Tensor(y_test), net)[1])
+        predictions_baseline_outer.append(validate_baseline(y_test, baseline_class)[1])
+        y_true_outer.append(y_test)
 
         k += 1
+
+    predictions_logreg_outer = np.concatenate(predictions_logreg_outer)
+    predictions_ann_outer = np.concatenate(predictions_ann_outer)
+    predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
+    y_true_outer = np.concatenate(y_true_outer)
+
+    alpha = 0.05
+    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_baseline_outer, predictions_logreg_outer, alpha=alpha)
+    results["comparison_baseline_logreg"] = {
+        "theta": thetahat,
+        "CI": CI,
+        "p": p
+    }
+
+    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_baseline_outer, predictions_ann_outer, alpha=alpha)
+    results["comparison_baseline_ann"] = {
+        "theta": thetahat,
+        "CI": CI,
+        "p": p
+    }
+    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_logreg_outer, predictions_ann_outer, alpha=alpha)
+    results["comparison_logreg_ann"] = {
+        "theta": thetahat,
+        "CI": CI,
+        "p": p
+    }
+
     return results
 
+
+# get coefficients of logistic regression
+#w_est = mdl.coef_[0]
+#coefficient_norm = np.sqrt(np.sum(w_est ** 2))
 
 def write_str_to_file(outfile_name, results_str):
     os.makedirs(os.path.dirname(outfile_name), exist_ok=True)
@@ -291,7 +319,9 @@ def convert_numpy_types(o):
     if isinstance(o, np.generic): return o.item()
     raise TypeError
 
-results = validate_models(X_float[:, 0:-2], y, baseline_class=0)
+X_standardized = standardize_data(X_float)
+k1 = k2 = 2
+results = validate_models(X_standardized[:, 0:-1], y, k1, k2, baseline_class=0)
 outstring = json.dumps(results, default=convert_numpy_types)
 outfile_name = "./results/results_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
