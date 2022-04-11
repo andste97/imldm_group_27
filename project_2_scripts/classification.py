@@ -185,7 +185,7 @@ def validate_baseline(y, baseline_class):
     return error_rate, prediction_baseline
 
 
-def validate_models(X, y, k1, k2, baseline_class):
+def validate_models(X, y, k1, k2, baseline_class, alpha):
     # choose lambda
     lambda_interval = np.logspace(-8, 2, 50)
     CV = model_selection.KFold(n_splits=k1, shuffle=True)
@@ -282,21 +282,26 @@ def validate_models(X, y, k1, k2, baseline_class):
     predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
     y_true_outer = np.concatenate(y_true_outer)
 
-    alpha = 0.05
-    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_baseline_outer, predictions_logreg_outer, alpha=alpha)
-    results["comparison_baseline_logreg"] = {
+    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_logreg_outer, predictions_baseline_outer, alpha=alpha)
+    results["comparison_logreg_baseline"] = {
         "theta": thetahat,
         "CI": CI,
         "p": p
     }
-    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_baseline_outer, predictions_ann_outer, alpha=alpha)
-    results["comparison_baseline_ann"] = {
+    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_ann_outer,predictions_baseline_outer, alpha=alpha)
+    results["comparison_ann_baseline"] = {
         "theta": thetahat,
         "CI": CI,
         "p": p
     }
     [thetahat, CI, p] = mcnemar(y_true_outer, predictions_logreg_outer, predictions_ann_outer, alpha=alpha)
     results["comparison_logreg_ann"] = {
+        "theta": thetahat,
+        "CI": CI,
+        "p": p
+    }
+    [thetahat, CI, p] = mcnemar(y_true_outer, predictions_ann_outer, predictions_logreg_outer, alpha=alpha)
+    results["comparison_ann_logreg"] = {
         "theta": thetahat,
         "CI": CI,
         "p": p
@@ -317,7 +322,8 @@ def convert_numpy_types(o):
 
 X_standardized = standardize_data(X_float)
 k1 = k2 = 10
-results = validate_models(X_standardized[:, 0:-1], y, k1, k2, baseline_class=0)
+alpha = 0.05
+results = validate_models(X_standardized[:, 0:-1], y, k1, k2, baseline_class=0, alpha=alpha)
 outstring = json.dumps(results, default=convert_numpy_types)
 outfile_name = "./results/results_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
