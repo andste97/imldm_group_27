@@ -1,125 +1,120 @@
+from matplotlib.pylab import (figure, semilogx, loglog, xlabel, ylabel, legend, tight_layout,
+                              title, subplot, show, grid, plot, hist)
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn import model_selection
-from sklearn.linear_model import LogisticRegression
-from toolbox_02450 import rocplot, confmatplot
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+import pandas as pd
+import sklearn.linear_model as lm
 
 data = pd.read_csv('data.csv', delimiter=';')
 
-# Encode categorical data
-labelencoder = LabelEncoder()
-data['famhist'] = labelencoder.fit_transform(data['famhist'])
+# one hot encoding of family history
+encoder = OneHotEncoder(handle_unknown='ignore')
+encoder_df = pd.DataFrame(encoder.fit_transform(data[['famhist']]).toarray())
+encoder_df.rename(columns={0: 'famhist1', 1: 'famhist2'}, inplace=True)
+data = data.join(encoder_df)
+data.drop('famhist', axis=1, inplace=True)
 
-X = data.iloc[:, 0:9].values
-y = data.iloc[:, -1].values.squeeze()
+X = data.loc[:, data.columns != 'age'].values
+y = data.iloc[:, -4].values.squeeze()
+N, M = X.shape
 
-# Standardize the training and set set based on training set mean and std
-mu = np.mean(X, 0)
-sigma = np.std(X, 0)
+# Standardizes data matrix so each column has mean 0 and std 1
+mu = np.mean(X, 0)  # each column mean
+sigma = np.std(X, 0)  # each column standard deviation
+X = (X - mu) / sigma  # standardisation formula converts attribute values to mean=0 and std=1
 
-X = (X - mu) / sigma
-# or
-# from sklearn.preprocessing import StandardScaler
-# sc_X = StandardScaler()
-# X = sc_X.fit_transform(X)
+# Fit ordinary least squares regression model
+model = lm.LinearRegression()
+model = model.fit(X, y)
+# Compute model output:
+y_est = model.predict(X)
+residual = y_est - y
 
-# Introduce a regularization parameter λ
-lambda_interval = np.logspace(-8, 2, 50)
-train_error_rate = np.zeros(len(lambda_interval))
-test_error_rate = np.zeros(len(lambda_interval))
-coefficient_norm = np.zeros(len(lambda_interval))
+figure()
+subplot(2, 1, 1)
+plot(y, y_est, '.')
+p1 = max(max(y_est), max(y))
+p2 = min(min(y_est), min(y))
+plot([p1, p2], [p1, p2], 'r-')
+xlabel('Age (true)');
+ylabel('Age (estimated)');
+subplot(2, 1, 2)
+hist(residual, 40, color='purple')
+xlabel('Residual plot')
+show()
 
-# for each value use K = 10 fold cross-validation to estimate the generalization error
-for i in range(0, len(lambda_interval)):
-    K = 10
-    CV = model_selection.KFold(n_splits=K, shuffle=True)
+# Add offset attribute
+X = np.concatenate((np.ones((X.shape[0], 1)), X), 1)
 
-    errors = np.zeros(K)
-    k = 0
-    for train_index, test_index in CV.split(X):
-        print('Crossvalidation fold: {0}/{1}'.format(k + 1, K))
+# Set attribute names and shape
+attributeNames = data.loc[:, data.columns != 'age'].columns.tolist()
+attributeNames = [u'Offset'] + attributeNames
+M = M + 1
 
-        # extract training and test set for current CV fold
-        X_train = X[train_index, :]
-        y_train = y[train_index]
-        X_test = X[test_index, :]
-        y_test = y[test_index]
-        mdl = LogisticRegression(penalty='l2', C=1 / lambda_interval[i])
+## Crossvalidation
+# Create crossvalidation partition for evaluation
+K = 10
+CV = model_selection.KFold(K, shuffle=True, random_state=1)
 
-        mdl.fit(X_train, y_train)
+# Values of lambda
+# lambdas = np.power(10.,range(-1,7))
+lambdas = np.logspace(-2, 7, 50)
+# lambdas = np.arange(3,16,0.05)
 
-        y_train_est = mdl.predict(X_train).T
-        y_test_est = mdl.predict(X_test).T
-        y_est_prob = mdl.predict_proba(X_test)
-        y_est = np.argmax(y_est_prob, 1)
-        errors[k] = np.sum(y_est != y_test, dtype=float) / y_test.shape[0]
+# Initialize data
+w = np.empty((M, K, len(lambdas)))
+train_error = np.empty((K, len(lambdas)))
+test_error = np.empty((K, len(lambdas)))
+y = y.squeeze()
 
-        train_error_rate[i] = np.sum(y_train_est != y_train) / len(y_train)
-        test_error_rate[i] = np.sum(y_test_est != y_test) / len(y_test)
+k = 0
+for train_index, test_index in CV.split(X, y):
+    X_train = X[train_index]
+    y_train = y[train_index]
+    X_test = X[test_index]
+    y_test = y[test_index]
 
-        w_est = mdl.coef_[0]
-        coefficient_norm[i] = np.sqrt(np.sum(w_est ** 2))
-        k += 1
+    # precompute terms
+    Xty = X_train.T @ y_train
+    XtX = X_train.T @ X_train
 
-min_error = np.min(test_error_rate)
-opt_lambda_idx = np.argmin(test_error_rate)
-opt_lambda = lambda_interval[opt_lambda_idx]
+    for l in range(0, len(lambdas)):
+        # Compute parameters for current value of lambda and current CV fold
+        lambdaI = lambdas[l] * np.eye(M)
+        lambdaI[0, 0] = 0  # remove bias regularization
+        w[:, k, l] = np.linalg.solve(XtX + lambdaI, Xty).squeeze()
+        # Evaluate training and test performance
+        train_error[k, l] = np.power(y_train - X_train @ w[:, k, l].T, 2).mean(axis=0)
+        test_error[k, l] = np.power(y_test - X_test @ w[:, k, l].T, 2).mean(axis=0)
 
-# Single logistic regression to check values of lamda - no corss validation
-from sklearn.model_selection import train_test_split
+    k = k + 1
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.9, stratify=y)
+minArg = np.argmin(np.mean(test_error, axis=0))
+k
+opt_val_err = np.min(np.mean(test_error, axis=0))
+opt_lambda = lambdas[minArg]
+train_err_vs_lambda = np.mean(train_error, axis=0)
+test_err_vs_lambda = np.mean(test_error, axis=0)
+mean_w_vs_lambda = np.squeeze(np.mean(w, axis=1))
 
-lambda_interval = np.logspace(-8, 2, 50)
-train_error_rate = np.zeros(len(lambda_interval))
-test_error_rate = np.zeros(len(lambda_interval))
-coefficient_norm = np.zeros(len(lambda_interval))
-for k in range(0, len(lambda_interval)):
-    mdl = LogisticRegression(penalty='l2', C=1 / lambda_interval[k])
+# PLOTS
+f = figure()
+title('Optimal lambda: {0}'.format(np.round(opt_lambda, 3)))
+semilogx(lambdas, train_err_vs_lambda.T, 'b.-', lambdas, test_err_vs_lambda.T, 'r.-')
+xlabel('Regularization factor')
+ylabel('Estimated generalization error')
+legend(['Train error', 'Validation error'])
+grid()
+tight_layout()
 
-    mdl.fit(X_train, y_train)
+f2 = figure()
+semilogx(lambdas, mean_w_vs_lambda.T[:, 1:], '.-')  # Don't plot the bias term
+xlabel('Regularization factor')
+ylabel('Mean Coefficient Values')
+grid()
+legend(attributeNames[1:], loc='best')
 
-    y_train_est = mdl.predict(X_train).T
-    y_test_est = mdl.predict(X_test).T
-
-    train_error_rate[k] = np.sum(y_train_est != y_train) / len(y_train)
-    test_error_rate[k] = np.sum(y_test_est != y_test) / len(y_test)
-
-    w_est = mdl.coef_[0]
-    coefficient_norm[k] = np.sqrt(np.sum(w_est ** 2))
-
-min_error = np.min(test_error_rate)
-opt_lambda_idx = np.argmin(test_error_rate)
-opt_lambda = lambda_interval[opt_lambda_idx]
-y_est_prob = mdl.predict_proba(X_test)
-
-# Plots
-plt.figure(figsize=(8, 8))
-plt.semilogx(lambda_interval, train_error_rate * 100)
-plt.semilogx(lambda_interval, test_error_rate * 100)
-plt.semilogx(opt_lambda, min_error * 100, 'o')
-plt.text(1e-8, 3, "Minimum test error: " + str(np.round(min_error * 100, 2)) + ' % at 1e' + str(
-    np.round(np.log10(opt_lambda), 2)))
-plt.xlabel('Regularization strength, $\log_{10}(\lambda)$')
-plt.ylabel('Error rate (%)')
-plt.title('Classification error')
-plt.legend(['Training error', 'Test error', 'Test minimum'], loc='upper right')
-plt.grid()
-plt.show()
-
-plt.figure(figsize=(8, 8))
-plt.semilogx(lambda_interval, coefficient_norm, 'k')
-plt.ylabel('L2 Norm')
-plt.xlabel('Regularization strength, $\log_{10}(\lambda)$')
-plt.title('Parameter vector L2 norm')
-plt.grid()
-plt.show()
-
-p = mdl.predict_proba(X_test)[:, 1].T
-plt.figure()
-rocplot(p, y_test)
-
-plt.figure()
-confmatplot(y_test, y_test_est)
+print('Weights for best regularization parameter:')
+for m in range(M):
+    print('{:>15} {:>15}'.format(attributeNames[m], np.round(mean_w_vs_lambda[m, minArg], 3)))
