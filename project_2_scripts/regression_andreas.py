@@ -105,7 +105,7 @@ def fit_linreg(X_train, y_train, X_test, y_test, var_lambda):
         Returns: Tuple (train_error_rate, test_error_rate, coefficient_norm)
     """
     # Standardize the training and set set based on training set moments
-    X_train, X_test = standardize_data(X_train, X_test)
+    #X_train, X_test = standardize_data(X_train, X_test)
 
     # precompute terms
     Xty = X_train.T @ y_train
@@ -116,9 +116,9 @@ def fit_linreg(X_train, y_train, X_test, y_test, var_lambda):
     eye_lambda[0, 0] = 0  # remove bias regularization
     mdl = np.linalg.solve(XtX + eye_lambda, Xty).squeeze()
     # Evaluate training and test performance
-    # todo: change to squared error per obseveration (currently mean squared error)
-    train_error_rate = np.power(y_train - X_train @ mdl.T, 2).mean(axis=0)
-    test_error_rate = np.power(y_test - X_test @ mdl.T,2).mean(axis=0)
+
+    train_error_rate = np.sum((y_train - X_train @ mdl.T) ** 2) / len(y_train)
+    test_error_rate = np.sum((y_test - X_test @ mdl.T) ** 2) / len(y_test)
 
     return train_error_rate, test_error_rate, mdl
 
@@ -159,8 +159,8 @@ def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
                                                        n_replicates=1,
                                                        max_iter=max_iter)
 
-    train_error_rate,_ = ann_predict(X_train, y_train, net)
-    test_error_rate,_ = ann_predict(X_test, y_test, net)
+    train_error_rate, _ = ann_predict(X_train, y_train, net)
+    test_error_rate, _ = ann_predict(X_test, y_test, net)
 
     # print('Best loss: {0}'.format(final_loss))
     # print('Validation error rate: {0}, train error rate: {1}'.format(test_error_rate, train_error_rate))
@@ -181,17 +181,17 @@ def ann_predict(X, y, net):
     return error_rate, y_est
 
 # this function also needs to be rewritten for regression
-def validate_baseline(y, baseline_class):
-    # todo: change for linear regression
+def validate_baseline(y):
     # create baseline data
-    prediction_baseline = np.full(y.shape, baseline_class)
-    error_rate = np.sum(prediction_baseline != y) / len(y)
+    prediction_baseline_value = np.mean(y)
+    prediction_baseline = np.full(y.shape, prediction_baseline_value)
+    error_rate = np.sum((prediction_baseline - y) ** 2) / len(y)
     return error_rate, prediction_baseline
 
 
 def validate_models(X, y, k1, k2, baseline_class, alpha):
     # choose lambda
-    lambda_interval = np.logspace(-8, 2, 50)
+    lambda_interval = np.logspace(-1, 6, 50)
     CV = model_selection.KFold(n_splits=k1, shuffle=True)
 
     # choose number of hidden units
@@ -238,7 +238,7 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
         gen_error_best_linreg = gen_error_all_models_linreg[index_best_gen_error_linreg]
 
         index_best_gen_error_ann = np.argmin(gen_error_all_models_ann)
-        gen_error_best_ann = gen_error_all_models_linreg[index_best_gen_error_ann]
+        gen_error_best_ann = gen_error_all_models_ann[index_best_gen_error_ann]
 
         # get index and performance of best model in inner loop according to error rate,
         # as specified in assignment description
@@ -272,12 +272,12 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
             train_ann(X_train, y_train, X_test, y_test,
                       num_hidden_units[index_best_avg_error_rate_ann])
 
-        results["test_error_baseline"][k] = validate_baseline(y_test, baseline_class)[0]
+        results["test_error_baseline"][k] = validate_baseline(y_test)[0]
 
-        #todo: change to linear regression model prediction function
-        predictions_linreg_outer.append(mdl.predict(X_test).T)
+        #todo: predictions of ANN and logreg wrong
+        predictions_linreg_outer.append(X_test @ mdl.T)
         predictions_ann_outer.append(ann_predict(torch.Tensor(X_test), torch.Tensor(y_test), net)[1])
-        predictions_baseline_outer.append(validate_baseline(y_test, baseline_class)[1])
+        predictions_baseline_outer.append(validate_baseline(y_test)[1])
         y_true_outer.append(y_test)
 
         k += 1
@@ -285,7 +285,7 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
     # the following part about he mcnemar tests has be rewritten for part b
     # as part b should be using t-tests or the method in box 11.4.1 (see project description)
     predictions_linreg_outer = np.concatenate(predictions_linreg_outer)
-    predictions_ann_outer = np.concatenate(np.concatenate(predictions_ann_outer))
+    predictions_ann_outer = np.concatenate(np.concatenate([list_item.detach().numpy() for list_item in predictions_ann_outer]))
     predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
     y_true_outer = np.concatenate(y_true_outer)
 
@@ -310,6 +310,6 @@ k1 = k2 = 2
 alpha = 0.05
 results = validate_models(X_float, y, k1, k2, baseline_class=0, alpha=alpha)
 outstring = json.dumps(results, default=convert_numpy_types)
-outfile_name = "./results/results_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
+outfile_name = "./results/results_linreg_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
 write_str_to_file(outfile_name, outstring)
