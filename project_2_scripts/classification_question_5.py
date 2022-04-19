@@ -44,7 +44,7 @@ mu = np.mean(X_float, 0)
 sigma = np.std(X_float, 0)
 X_standardized = (X_float - mu) / sigma
 
-X_train = X_standardized
+X_train = X_standardized[:, :-1]
 y_train = y
 
 #X_train, X_test, y_train, y_test = model_selection.train_test_split(X_standardized, y, test_size=0.3)

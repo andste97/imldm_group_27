@@ -11,6 +11,7 @@ import os
 
 from toolbox_02450 import train_neural_net, mcnemar
 
+# no need to change anything in the basic variable initialization for regression
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
 df = pd.read_csv(url)
 print(df)
@@ -55,7 +56,7 @@ X_float = np.array(X, dtype=np.float64)
 num_chd_negative = len([chd for chd in classLabels if chd == 0])
 print("number of chd negative: ", num_chd_negative, ", number of chd positive: ", N - num_chd_negative)
 
-
+# for regression, this function can stay the same
 def standardize_data(X):
     # Standardize the training and set set based on training set mean and std
     mu = np.mean(X, 0)
@@ -63,7 +64,7 @@ def standardize_data(X):
     X_standardized = (X - mu) / sigma
     return X_standardized
 
-
+# this function can probably stay the same for regression part b
 def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
     """
         Implementation of Inner loop of Algorithm 6 of the lecture notes (the book)
@@ -99,6 +100,8 @@ def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
     return val_error_rate_all_models, gen_error_all_models
 
 
+# for regression, this function needs to be changed to a linear regression model,
+# also the calculation of the error rate needs to be changed
 def fit_logreg(X_train, y_train, X_test, y_test, var_lambda):
     """
         Fit a logistic regression model to X_train, evaluate the model
@@ -113,7 +116,8 @@ def fit_logreg(X_train, y_train, X_test, y_test, var_lambda):
 
     return train_error_rate, test_error_rate, mdl
 
-
+# In this function I am not sure what needs to be changed for regression,
+# maybe line 129, which shapes the output
 def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
     """
         Train an ANN with num_hidden_units
@@ -164,6 +168,7 @@ def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
     return train_error_rate, test_error_rate, net
 
 
+# this function needs to be completely rewritten for regression
 def ann_predict(X, y, net):
     """
         Use ANN to predict values of X_test and X_train and compare them with y_test and y_train respectively
@@ -177,7 +182,7 @@ def ann_predict(X, y, net):
     error_rate = (sum(y_est != y).type(torch.float) / len(y)).tolist()[0]
     return error_rate, y_est
 
-
+# this function also needs to be rewritten for regression
 def validate_baseline(y, baseline_class):
     # create baseline data
     prediction_baseline = np.full(y.shape, baseline_class)
@@ -277,6 +282,8 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
 
         k += 1
 
+    # the following part about he mcnemar tests has be rewritten for part b
+    # as part b should be using t-tests or the method in box 11.4.1 (see project description)
     predictions_logreg_outer = np.concatenate(predictions_logreg_outer)
     predictions_ann_outer = np.concatenate(np.concatenate(predictions_ann_outer))
     predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
@@ -320,6 +327,7 @@ def convert_numpy_types(o):
     if isinstance(o, np.generic): return o.item()
     raise TypeError
 
+# here, alpha is probably not needed for regression (as mcnemar will not be used)
 X_standardized = standardize_data(X_float)
 k1 = k2 = 10
 alpha = 0.05
