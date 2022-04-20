@@ -28,6 +28,7 @@ attributeNames = np.asarray(df.columns[cols])
 print(attributeNames)
 
 # Extract vector y, convert to NumPy array
+# in this case, y corresponds to the attribute 'age'
 y = np.array(X[:, -2], dtype=np.float64)
 # y is transposed
 y = y.T
@@ -38,18 +39,20 @@ classDict_famhist = dict(zip(classNames_famhist, range(len(classNames_famhist)))
 
 # column 5 transformed from text present/absent to 1/0
 v_famhist_transformed = np.array([classDict_famhist[value] for value in classLabels_famhist])
-# print('Vector famhist transformed: ', v_famhist_transformed)
-
 X[:, 4] = v_famhist_transformed
-# print("X, column 4 replaced with transformed values: \n", X)
+
+# the attributes which will be used to predict age
+# columns_for_prediction = [0, 1, 2, 3, 4, 6, 9]
+columns_for_prediction = [0, 1, 2, 3, 4, 5, 6, 7, 9]
 
 # convert x to float
 # only use the attribtues which were stated in first report for regression
 X_float = np.array(X, dtype=np.float64)
-X_float = X_float[:, [0, 1, 2, 3, 4, 6, 9]]
+X_float = X_float[:, columns_for_prediction]
 
 N = len(raw_data[:, 8])
-M = len(attributeNames[[0, 1, 2, 3, 4, 6, 9]])
+M = len(attributeNames[columns_for_prediction])
+
 
 # for regression, this function can stay the same
 def standardize_data(X_train, X_test):
@@ -57,9 +60,18 @@ def standardize_data(X_train, X_test):
     mu = np.mean(X_train, 0)
     sigma = np.std(X_train, 0)
 
-    X_train = (X_train - mu) / sigma
-    X_test = (X_test - mu) / sigma
-    return X_train, X_test
+    X_train_stand = (X_train - mu) / sigma
+    X_test_stand = (X_test - mu) / sigma
+    return X_train_stand, X_test_stand
+
+
+def standardize_all_data(X):
+    # Standardize the training and set set based on training set mean and std
+    mu = np.mean(X, 0)
+    sigma = np.std(X, 0)
+    X_standardized = (X - mu) / sigma
+    return X_standardized
+
 
 # this function can probably stay the same for regression part b
 def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
@@ -69,7 +81,7 @@ def inner_loop(X, y, k2, model_training_method, regularization_param_interval):
     """
     # split dataset into k2 parts for inner loop,
     # then loop over k2 inner parts
-    CV = model_selection.KFold(n_splits=k2, shuffle=True)
+    CV = model_selection.KFold(n_splits=k2, shuffle=False)
 
     val_error_rate_all_models = np.zeros((k2, len(regularization_param_interval)))
     gen_error_all_models = np.zeros(len(regularization_param_interval))
@@ -104,15 +116,15 @@ def fit_linreg(X_train, y_train, X_test, y_test, var_lambda):
         Fit a logistic regression model to X_train, evaluate the model
         Returns: Tuple (train_error_rate, test_error_rate, coefficient_norm)
     """
-    # Standardize the training and set set based on training set moments
-    #X_train, X_test = standardize_data(X_train, X_test)
+    X_train = np.concatenate((np.ones((X_train.shape[0], 1)), X_train), 1)
+    X_test = np.concatenate((np.ones((X_test.shape[0], 1)), X_test), 1)
 
     # precompute terms
     Xty = X_train.T @ y_train
     XtX = X_train.T @ X_train
     # Compute parameters for current value of lambda and current CV fold
     # note: "linalg.lstsq(a,b)" is substitue for Matlab's left division operator "\"
-    eye_lambda = var_lambda * np.eye(M)
+    eye_lambda = var_lambda * np.eye(M+1)
     eye_lambda[0, 0] = 0  # remove bias regularization
     mdl = np.linalg.solve(XtX + eye_lambda, Xty).squeeze()
     # Evaluate training and test performance
@@ -122,6 +134,7 @@ def fit_linreg(X_train, y_train, X_test, y_test, var_lambda):
 
     return train_error_rate, test_error_rate, mdl
 
+
 # In this function I am not sure what needs to be changed for regression,
 # maybe line 129, which shapes the output
 def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
@@ -129,6 +142,7 @@ def train_ann(X_train, y_train, X_test, y_test, num_hidden_units):
         Train an ANN with num_hidden_units
         Tuple (test_error_rate, train_error_rate)
     """
+
     model = lambda: torch.nn.Sequential(
         torch.nn.Linear(M, num_hidden_units),  # M features to n_hidden_units
         torch.nn.Tanh(),  # 1st transfer function,
@@ -177,8 +191,9 @@ def ann_predict(X, y, net):
     # Determine estimated class labels for test set
     y_est = net(X)
     # Determine errors and error rate
-    error_rate = (sum((y_est - y)**2).type(torch.float) / len(y)).tolist()[0]
+    error_rate = (sum((y_est - y) ** 2).type(torch.float) / len(y)).tolist()[0]
     return error_rate, y_est
+
 
 # this function also needs to be rewritten for regression
 def validate_baseline(y):
@@ -191,11 +206,12 @@ def validate_baseline(y):
 
 def validate_models(X, y, k1, k2, baseline_class, alpha):
     # choose lambda
-    lambda_interval = np.logspace(-1, 6, 50)
-    CV = model_selection.KFold(n_splits=k1, shuffle=True)
+    lambda_interval = np.logspace(-2, 6, 50)
 
     # choose number of hidden units
     num_hidden_units = np.arange(1, 6, 1)
+
+    CV = model_selection.KFold(n_splits=k1, shuffle=False)
 
     results = {
         "k1": k1,
@@ -264,9 +280,11 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
         results["best_regularization_linreg"][k] = lambda_interval[index_best_avg_error_rate_linreg]
         results["best_regularization_ann"][k] = num_hidden_units[index_best_avg_error_rate_ann]
 
+        X_train_stand, X_test_stand = standardize_data(X_train, X_test)
+
         # calculate generalization error of models
         outer_loop_train_error_linreg, results["test_error_linreg"][k], mdl = \
-            fit_linreg(X_train, y_train, X_test, y_test,
+            fit_linreg(X_train_stand, y_train, X_test_stand, y_test,
                        lambda_interval[index_best_avg_error_rate_linreg])
         outer_loop_train_error_ann, results["test_error_ann"][k], net = \
             train_ann(X_train, y_train, X_test, y_test,
@@ -274,8 +292,7 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
 
         results["test_error_baseline"][k] = validate_baseline(y_test)[0]
 
-        #todo: predictions of ANN and logreg wrong
-        predictions_linreg_outer.append(X_test @ mdl.T)
+        predictions_linreg_outer.append(np.concatenate((np.ones((X_test_stand.shape[0], 1)), X_test_stand), 1) @ mdl.T)
         predictions_ann_outer.append(ann_predict(torch.Tensor(X_test), torch.Tensor(y_test), net)[1])
         predictions_baseline_outer.append(validate_baseline(y_test)[1])
         y_true_outer.append(y_test)
@@ -285,11 +302,16 @@ def validate_models(X, y, k1, k2, baseline_class, alpha):
     # the following part about he mcnemar tests has be rewritten for part b
     # as part b should be using t-tests or the method in box 11.4.1 (see project description)
     predictions_linreg_outer = np.concatenate(predictions_linreg_outer)
-    predictions_ann_outer = np.concatenate(np.concatenate([list_item.detach().numpy() for list_item in predictions_ann_outer]))
+    predictions_ann_outer = np.concatenate(
+        np.concatenate([list_item.detach().numpy() for list_item in predictions_ann_outer]))
     predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
     y_true_outer = np.concatenate(y_true_outer)
 
     # todo: implement paired t-test
+
+    results["y_true_outer"] = y_true_outer.tolist()
+    results["predictions_linreg_outer"] = predictions_linreg_outer.tolist()
+    results["predictions_ann_outer"] = predictions_ann_outer.tolist()
 
     return results
 
@@ -304,8 +326,9 @@ def convert_numpy_types(o):
     if isinstance(o, np.generic): return o.item()
     raise TypeError
 
+
 # here, alpha is probably not needed for regression (as mcnemar will not be used)
-#X_standardized = standardize_data(X_float)
+# X_standardized = standardize_all_data(X_float)
 k1 = k2 = 2
 alpha = 0.05
 results = validate_models(X_float, y, k1, k2, baseline_class=0, alpha=alpha)
