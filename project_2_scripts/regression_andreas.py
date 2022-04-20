@@ -204,12 +204,12 @@ def validate_baseline(y):
     return error_rate, prediction_baseline
 
 
-def validate_models(X, y, k1, k2, baseline_class, alpha):
+def validate_models(X, y, k1, k2):
     # choose lambda
     lambda_interval = np.logspace(-2, 6, 50)
 
     # choose number of hidden units
-    num_hidden_units = np.arange(1, 6, 1)
+    num_hidden_units = np.arange(1, 11, 2)
 
     CV = model_selection.KFold(n_splits=k1, shuffle=False)
 
@@ -329,9 +329,8 @@ def convert_numpy_types(o):
 
 # here, alpha is probably not needed for regression (as mcnemar will not be used)
 # X_standardized = standardize_all_data(X_float)
-k1 = k2 = 2
-alpha = 0.05
-results = validate_models(X_float, y, k1, k2, baseline_class=0, alpha=alpha)
+k1 = k2 = 10
+results = validate_models(X_float, y, k1, k2)
 outstring = json.dumps(results, default=convert_numpy_types)
 outfile_name = "./results/results_linreg_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
 
