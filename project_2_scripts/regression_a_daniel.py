@@ -1,3 +1,7 @@
+"""
+@author Daniel Acebo Medina
+"""
+
 from matplotlib.pylab import (figure, semilogx, loglog, xlabel, ylabel, legend, tight_layout,
                               title, subplot, show, grid, plot, hist)
 import numpy as np

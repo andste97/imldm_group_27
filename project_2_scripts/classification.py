@@ -1,3 +1,7 @@
+"""
+@author Andreas Stehle
+"""
+
 import datetime
 import json
 import time
