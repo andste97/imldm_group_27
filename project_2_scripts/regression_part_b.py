@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Apr 20 22:26:08 2022
+
+@author: astehle, kkrus
+"""
+
 import datetime
 import json
 import time
@@ -5,11 +12,15 @@ import time
 import numpy as np
 import pandas as pd
 import torch
+import scipy
+from scipy import stats
+import scipy.stats as st
 from sklearn import model_selection
 from sklearn.linear_model import LogisticRegression
 import os
 
 from toolbox_02450 import train_neural_net, mcnemar
+from toolbox_02450.statistics import ttest_twomodels
 
 # no need to change anything in the basic variable initialization for regression
 url = "https://hastie.su.domains/ElemStatLearn/datasets/SAheart.data"
@@ -124,7 +135,7 @@ def fit_linreg(X_train, y_train, X_test, y_test, var_lambda):
     XtX = X_train.T @ X_train
     # Compute parameters for current value of lambda and current CV fold
     # note: "linalg.lstsq(a,b)" is substitue for Matlab's left division operator "\"
-    eye_lambda = var_lambda * np.eye(M+1)
+    eye_lambda = var_lambda * np.eye(M + 1)
     eye_lambda[0, 0] = 0  # remove bias regularization
     mdl = np.linalg.solve(XtX + eye_lambda, Xty).squeeze()
     # Evaluate training and test performance
@@ -307,7 +318,28 @@ def validate_models(X, y, k1, k2):
     predictions_baseline_outer = np.concatenate(predictions_baseline_outer)
     y_true_outer = np.concatenate(y_true_outer)
 
-    # todo: implement paired t-test
+    # implement paired t-test using method 11.3.4 from the book
+
+    [mean_z, CI, p] = ttest_twomodels(y_true_outer, predictions_linreg_outer, predictions_baseline_outer, alpha=alpha)
+    results["comparison_linreg_baseline"] = {
+        "mean of z": mean_z,
+        "CI": CI,
+        "p": p
+    }
+    [mean_z, CI, p] = ttest_twomodels(y_true_outer, predictions_ann_outer, predictions_baseline_outer, alpha=alpha)
+    results["comparison_ann_baseline"] = {
+        "mean of z": mean_z,
+        "CI": CI,
+        "p": p
+    }
+    [mean_z, CI, p] = ttest_twomodels(y_true_outer, predictions_ann_outer, predictions_linreg_outer, alpha=alpha)
+    results["comparison_ann_linreg"] = {
+        "mean of z": mean_z,
+        "CI": CI,
+        "p": p
+    }
+
+    results
 
     results["y_true_outer"] = y_true_outer.tolist()
     results["predictions_linreg_outer"] = predictions_linreg_outer.tolist()
@@ -330,6 +362,7 @@ def convert_numpy_types(o):
 # here, alpha is probably not needed for regression (as mcnemar will not be used)
 # X_standardized = standardize_all_data(X_float)
 k1 = k2 = 10
+alpha = 0.05
 results = validate_models(X_float, y, k1, k2)
 outstring = json.dumps(results, default=convert_numpy_types)
 outfile_name = "./results/results_linreg_" + time.strftime("%Y%m%d-%H%M%S") + ".json"
